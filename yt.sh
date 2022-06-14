@@ -1,0 +1,169 @@
+#!/usr/bin/env bash
+
+CURDIR=$PWD
+WGET_HEADER="User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0"
+MODULEPATH=$CURDIR/RevancedYT
+YTVER=17.27.35
+SEND=$CURDIR/send.py
+
+clone() {
+echo "Cleaning and Cloning $1"
+rm -rf $3
+URL=https://github.com/revanced
+git clone --depth=1 $URL/$1 -b $2 $CURDIR/$3  2> /dev/null
+}
+
+req() {
+    wget -q -O "$2" --header="$WGET_HEADER" "$1"
+}
+
+dl_yt() {
+    rm -rf $2
+    echo "Downloading YouTube"
+    url="https://www.apkmirror.com/apk/google-inc/youtube/youtube-${1//./-}-release/"
+    url="https://www.apkmirror.com$(req "$url" - | tr '\n' ' ' | sed -n 's/href="/@/g; s;.*BUNDLE</span>[^@]*@\([^#]*\).*;\1;p')"
+    url="https://www.apkmirror.com$(req "$url" - | tr '\n' ' ' | sed -n 's;.*href="\(.*key=[^"]*\)">.*;\1;p')"
+    url="https://www.apkmirror.com$(req "$url" - | tr '\n' ' ' | sed -n 's;.*href="\(.*key=[^"]*\)">.*;\1;p')"
+    req "$url" "$2"
+}
+
+clone_tools() {
+clone revanced-patcher main revanced-patcher
+clone revanced-patches main revanced-patches
+clone revanced-cli main revanced-cli
+clone revanced-integrations main revanced-integrations
+PATCHERVER=$(grep version $CURDIR/revanced-patcher/gradle.properties | tr -dc .0-9)
+PATCHESVER=$(grep version $CURDIR/revanced-patches/gradle.properties | tr -dc .0-9)
+INTEGRATIONSVER=$(grep version $CURDIR/revanced-integrations/gradle.properties | tr -dc .0-9)
+CLIVER=$(grep version $CURDIR/revanced-cli/gradle.properties | tr -dc .0-9)
+}
+
+build_tools() {
+cd $CURDIR/revanced-patcher && sh gradlew build > /dev/null
+cd $CURDIR/revanced-patches && sh gradlew build > /dev/null
+cd $CURDIR/revanced-integrations && sh gradlew build > /dev/null
+cd $CURDIR/revanced-cli && sh gradlew build > /dev/null
+PATCHER=`ls $CURDIR/revanced-patcher/build/libs/revanced-patcher-$PATCHERVER.jar`
+PATCHES=`ls $CURDIR/revanced-patches/build/libs/revanced-patches-$PATCHESVER.jar`
+INTEG=`ls $CURDIR/revanced-integrations/app/build/outputs/apk/release/app-release-unsigned.apk`
+CLI=`ls $CURDIR/revanced-cli/build/libs/revanced-cli-$CLIVER-all.jar`
+}
+
+# Get skipped patches
+SKIPPATCHES=$(cat $CURDIR/skippedpatches)
+for SKIPPATCH in ${SKIPPATCHES[@]}; do
+SKIP+=' -e '$SKIPPATCH
+done
+
+# Generate message
+generate_message() {
+echo "**$YTNAME**" > $CURDIR/fm
+echo "" >> $CURDIR/fm
+echo "$(cat $CURDIR/message)" >> $CURDIR/fm
+echo "" >> $CURDIR/fm
+echo "**Tools:**" >> $CURDIR/fm
+echo "revanced-patcher: $PATCHERVER" >> $CURDIR/fm
+echo "revanced-patches: $PATCHESVER" >> $CURDIR/fm
+echo "revanced-integrations: $INTEGRATIONSVER" >> $CURDIR/fm
+echo "revanced-cli: $CLIVER" >> $CURDIR/fm
+echo "" >> $CURDIR/fm
+echo "**Skipped Patches:**" >> $CURDIR/fm
+echo "$(cat $CURDIR/skippedpatches)" >> $CURDIR/fm
+MSG=$(sed 's/$/\\n/g' ${CURDIR}/fm)
+}
+
+generate_release_data() {
+cat <<EOF
+{
+"tag_name":"${YTVER}_v${1}",
+"target_commitish":"master",
+"name":"$YTNAME",
+"body":"$MSG",
+"draft":false,
+"prerelease":false,
+"generate_release_notes":false
+}
+EOF
+}
+
+create_release() {
+command="curl -s -o /dev/null -w '%{http_code}' \
+    -X POST \
+    -H 'Accept: application/vnd.github+json' \
+    -H 'Authorization: token ${GITHUB_TOKEN}' \
+    https://api.github.com/repos/shekhawat2/RevancedYT/releases \
+    -d '$(generate_release_data ${1})'"
+}
+
+upload_release_file() {
+curl -s -o latest.json \
+    -H "Accept: application/vnd.github+json" \
+    -H "Authorization: token ${GITHUB_TOKEN}" \
+    https://api.github.com/repos/shekhawat2/RevancedYT/releases/latest
+
+url=`jq -r .upload_url latest.json | cut -d { -f'1'`
+command="curl -s -o /dev/null -w '%{http_code}' \
+    -H 'Authorization: token ${GITHUB_TOKEN}' \
+    -H 'Content-Type: $(file -b --mime-type ${CURDIR}/${YTNAME}.zip)' \
+    --data-binary @${CURDIR}/${YTNAME}.zip \
+    ${url}?name=${YTNAME}.zip"
+
+http_code=`eval $command`
+if [ $http_code == "201" ]; then
+    echo "asset ${YTNAME}.zip uploaded"
+else
+    echo "upload failed with code '$http_code'"
+    exit 1
+fi
+}
+
+# Clone Tools
+clone_tools
+# Create Release
+for N in {1..9}; do
+    YTNAME=RevancedYT_${YTVER}_v${N}
+    generate_message
+    create_release $N
+    http_code=`eval $command`
+    if [ $http_code == "201" ]; then
+        echo "created release ${YTNAME}"
+        break
+    elif [ $http_code == "422" ]; then
+        echo "Trying Again to create release"
+        continue
+    fi
+done
+
+# Cleanup
+rm -rf $CURDIR/${YTNAME}.zip
+rm -rf $MODULEPATH/youtube && mkdir -p $MODULEPATH/youtube
+rm -rf $MODULEPATH/revanced.apk
+
+# Download Youtube
+dl_yt $YTVER $CURDIR/$YTVER.zip
+
+# Unzip Youtube
+unzip -j -q $CURDIR/$YTVER.zip *.apk -d $MODULEPATH/youtube
+
+# Build Tools
+build_tools
+
+# Patch Apk
+java -jar $CLI -a $MODULEPATH/youtube/base.apk -o $MODULEPATH/revanced.apk --keystore=$CURDIR/revanced.keystore -b $PATCHES -m $INTEG --experimental $SKIP
+
+# Create Module
+echo "Creating ${YTNAME}.zip"
+cd $MODULEPATH && zip -qr9 $CURDIR/$YTNAME.zip *
+
+# Generate Message
+generate_message
+
+# Send To Telegram
+if [[ $APPID && $APIHASH && $SESSIONSTRING ]]; then
+    echo "Sending to Telegram"
+    $SEND $CURDIR/$YTNAME.zip $CURDIR/fm
+fi
+# Upload Github Release
+if [[ $GITHUB_TOKEN ]]; then
+    upload_release_file
+fi

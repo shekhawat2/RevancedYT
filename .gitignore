@@ -1,0 +1,8 @@
+revanced-patches
+revanced-patcher
+revanced-cli
+revanced-integrations
+*.apk
+*.json
+*.zip
+fm
