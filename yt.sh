@@ -4,7 +4,6 @@ CURDIR=$PWD
 WGET_HEADER="User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0"
 MODULEPATH=$CURDIR/RevancedYT
 YTVER=17.27.35
-SEND=$CURDIR/send.py
 
 clone() {
 echo "Cleaning and Cloning $1"
@@ -158,11 +157,6 @@ cd $MODULEPATH && zip -qr9 $CURDIR/$YTNAME.zip *
 # Generate Message
 generate_message
 
-# Send To Telegram
-if [[ $APPID && $APIHASH && $SESSIONSTRING ]]; then
-    echo "Sending to Telegram"
-    $SEND $CURDIR/$YTNAME.zip $CURDIR/fm
-fi
 # Upload Github Release
 if [[ $GITHUB_TOKEN ]]; then
     upload_release_file

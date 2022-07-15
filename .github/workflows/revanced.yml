@@ -33,9 +33,6 @@ jobs:
           cache: gradle
       - name: Start building
         env:
-          APPID: ${{ secrets.APPID }}
-          APIHASH: ${{ secrets.APIHASH }}
-          SESSIONSTRING: ${{ secrets.SESSIONSTRING }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ./yt.sh
