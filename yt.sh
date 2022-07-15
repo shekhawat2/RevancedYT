@@ -3,7 +3,7 @@
 CURDIR=$PWD
 WGET_HEADER="User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0"
 MODULEPATH=$CURDIR/RevancedYT
-YTVER=17.27.35
+VERSION=17.27.35
 
 clone() {
 echo "Cleaning and Cloning $1"
@@ -56,25 +56,25 @@ done
 
 # Generate message
 generate_message() {
-echo "**$YTNAME**" > $CURDIR/fm
-echo "" >> $CURDIR/fm
-echo "$(cat $CURDIR/message)" >> $CURDIR/fm
-echo "" >> $CURDIR/fm
-echo "**Tools:**" >> $CURDIR/fm
-echo "revanced-patcher: $PATCHERVER" >> $CURDIR/fm
-echo "revanced-patches: $PATCHESVER" >> $CURDIR/fm
-echo "revanced-integrations: $INTEGRATIONSVER" >> $CURDIR/fm
-echo "revanced-cli: $CLIVER" >> $CURDIR/fm
-echo "" >> $CURDIR/fm
-echo "**Skipped Patches:**" >> $CURDIR/fm
-echo "$(cat $CURDIR/skippedpatches)" >> $CURDIR/fm
-MSG=$(sed 's/$/\\n/g' ${CURDIR}/fm)
+echo "**$YTNAME**" > $CURDIR/changelog.md
+echo "" >> $CURDIR/changelog.md
+echo "$(cat $CURDIR/message)" >> $CURDIR/changelog.md
+echo "" >> $CURDIR/changelog.md
+echo "**Tools:**" >> $CURDIR/changelog.md
+echo "revanced-patcher: $PATCHERVER" >> $CURDIR/changelog.md
+echo "revanced-patches: $PATCHESVER" >> $CURDIR/changelog.md
+echo "revanced-integrations: $INTEGRATIONSVER" >> $CURDIR/changelog.md
+echo "revanced-cli: $CLIVER" >> $CURDIR/changelog.md
+echo "" >> $CURDIR/changelog.md
+echo "**Skipped Patches:**" >> $CURDIR/changelog.md
+echo "$(cat $CURDIR/skippedpatches)" >> $CURDIR/changelog.md
+MSG=$(sed 's/$/\\n/g' ${CURDIR}/changelog.md)
 }
 
 generate_release_data() {
 cat <<EOF
 {
-"tag_name":"${YTVER}_v${1}",
+"tag_name":"${VERSION}_v${1}",
 "target_commitish":"master",
 "name":"$YTNAME",
 "body":"$MSG",
@@ -104,8 +104,8 @@ url=`jq -r .upload_url latest.json | cut -d { -f'1'`
 command="curl -s -o /dev/null -w '%{http_code}' \
     -H 'Authorization: token ${GITHUB_TOKEN}' \
     -H 'Content-Type: $(file -b --mime-type ${CURDIR}/${YTNAME}.zip)' \
-    --data-binary @${CURDIR}/${YTNAME}.zip \
-    ${url}?name=${YTNAME}.zip"
+    --data-binary @${1} \
+    ${url}?name=$(basename ${1})"
 
 http_code=`eval $command`
 if [ $http_code == "201" ]; then
@@ -120,8 +120,9 @@ fi
 clone_tools
 # Create Release
 for N in {1..9}; do
-    YTNAME=RevancedYT_${YTVER}_v${N}
+    YTNAME=RevancedYT_${VERSION}_v${N}
     generate_message
+    VERSIONCODE=$(sed "s/\.//g" <<< ${VERSION})${N}
     create_release $N
     http_code=`eval $command`
     if [ $http_code == "201" ]; then
@@ -139,10 +140,10 @@ rm -rf $MODULEPATH/youtube && mkdir -p $MODULEPATH/youtube
 rm -rf $MODULEPATH/revanced.apk
 
 # Download Youtube
-dl_yt $YTVER $CURDIR/$YTVER.zip
+dl_yt $VERSION $CURDIR/$VERSION.zip
 
 # Unzip Youtube
-unzip -j -q $CURDIR/$YTVER.zip *.apk -d $MODULEPATH/youtube
+unzip -j -q $CURDIR/$VERSION.zip *.apk -d $MODULEPATH/youtube
 
 # Build Tools
 build_tools
@@ -152,12 +153,21 @@ java -jar $CLI -a $MODULEPATH/youtube/base.apk -o $MODULEPATH/revanced.apk --key
 
 # Create Module
 echo "Creating ${YTNAME}.zip"
+sed -i "/version=/s/=.*/=$VERSION/g" $MODULEPATH/module.prop
+sed -i "/versionCode=/s/=.*/=$VERSIONCODE/g" $MODULEPATH/module.prop
 cd $MODULEPATH && zip -qr9 $CURDIR/$YTNAME.zip *
 
 # Generate Message
 generate_message
 
+# Generate updateJson
+sed -i "/\"version\"/s/:\ .*/:\ \"$VERSION\",/g" $CURDIR/update.json
+sed -i "/\"versionCode\"/s/:\ .*/:\ $VERSIONCODE,/g" $CURDIR/update.json
+sed -i "/\"zipUrl\"/s/REVANCEDZIP/$YTNAME/g" $CURDIR/update.json
+
 # Upload Github Release
 if [[ $GITHUB_TOKEN ]]; then
-    upload_release_file
+    upload_release_file $CURDIR/$YTNAME.zip
+    upload_release_file $CURDIR/update.json
+    upload_release_file $CURDIR/changelog.md
 fi
