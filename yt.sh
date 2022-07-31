@@ -3,7 +3,7 @@
 CURDIR=$PWD
 WGET_HEADER="User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0"
 MODULEPATH=$CURDIR/RevancedYT
-VERSION=17.28.34
+VERSION=17.29.34
 
 clone() {
 echo "Cleaning and Cloning $1"
