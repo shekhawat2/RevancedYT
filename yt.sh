@@ -138,7 +138,7 @@ dl_yt $VERSION $MODULEPATH/youtube/base.apk
 build_tools
 
 # Patch Apk
-java -jar $CLI -a $MODULEPATH/youtube/base.apk -o $MODULEPATH/revanced.apk --keystore=$CURDIR/revanced.keystore -b $PATCHES -m $INTEG --experimental
+java -jar $CLI -a $MODULEPATH/youtube/base.apk -o $MODULEPATH/revanced.apk --keystore=$CURDIR/revanced.keystore -b $PATCHES -m $INTEG --experimental -e microg-support || exit
 
 # Create Module
 echo "Creating ${YTNAME}.zip"
