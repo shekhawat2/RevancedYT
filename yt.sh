@@ -20,7 +20,7 @@ dl_yt() {
     rm -rf $2
     echo "Downloading YouTube"
     url="https://www.apkmirror.com/apk/google-inc/youtube/youtube-${1//./-}-release/"
-    url="https://www.apkmirror.com$(req "$url" - | tr '\n' ' ' | sed -n 's/href="/@/g; s;.*BUNDLE</span>[^@]*@\([^#]*\).*;\1;p')"
+    url="https://www.apkmirror.com$(req "$url" - | tr '\n' ' ' | sed -n 's/href="/@/g; s;.*APK</span>[^@]*@\([^#]*\).*;\1;p')"
     url="https://www.apkmirror.com$(req "$url" - | tr '\n' ' ' | sed -n 's;.*href="\(.*key=[^"]*\)">.*;\1;p')"
     url="https://www.apkmirror.com$(req "$url" - | tr '\n' ' ' | sed -n 's;.*href="\(.*key=[^"]*\)">.*;\1;p')"
     req "$url" "$2"
@@ -132,10 +132,7 @@ rm -rf $MODULEPATH/youtube && mkdir -p $MODULEPATH/youtube
 rm -rf $MODULEPATH/revanced.apk
 
 # Download Youtube
-dl_yt $VERSION $CURDIR/$VERSION.zip
-
-# Unzip Youtube
-unzip -j -q $CURDIR/$VERSION.zip *.apk -d $MODULEPATH/youtube
+dl_yt $VERSION $MODULEPATH/youtube/base.apk
 
 # Build Tools
 build_tools
