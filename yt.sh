@@ -48,12 +48,6 @@ INTEG=`ls $CURDIR/revanced-integrations/app/build/outputs/apk/release/app-releas
 CLI=`ls $CURDIR/revanced-cli/build/libs/revanced-cli-$CLIVER-all.jar`
 }
 
-# Get skipped patches
-SKIPPATCHES=$(cat $CURDIR/skippedpatches)
-for SKIPPATCH in ${SKIPPATCHES[@]}; do
-SKIP+=' -e '$SKIPPATCH
-done
-
 # Generate message
 generate_message() {
 echo "**$YTNAME**" > $CURDIR/changelog.md
@@ -66,8 +60,6 @@ echo "revanced-patches: $PATCHESVER" >> $CURDIR/changelog.md
 echo "revanced-integrations: $INTEGRATIONSVER" >> $CURDIR/changelog.md
 echo "revanced-cli: $CLIVER" >> $CURDIR/changelog.md
 echo "" >> $CURDIR/changelog.md
-echo "**Skipped Patches:**" >> $CURDIR/changelog.md
-echo "$(cat $CURDIR/skippedpatches)" >> $CURDIR/changelog.md
 MSG=$(sed 's/$/\\n/g' ${CURDIR}/changelog.md)
 }
 
@@ -149,7 +141,7 @@ unzip -j -q $CURDIR/$VERSION.zip *.apk -d $MODULEPATH/youtube
 build_tools
 
 # Patch Apk
-java -jar $CLI -a $MODULEPATH/youtube/base.apk -o $MODULEPATH/revanced.apk --keystore=$CURDIR/revanced.keystore -b $PATCHES -m $INTEG --experimental $SKIP
+java -jar $CLI -a $MODULEPATH/youtube/base.apk -o $MODULEPATH/revanced.apk --keystore=$CURDIR/revanced.keystore -b $PATCHES -m $INTEG --experimental
 
 # Create Module
 echo "Creating ${YTNAME}.zip"
