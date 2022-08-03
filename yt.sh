@@ -101,7 +101,7 @@ command="curl -s -o /dev/null -w '%{http_code}' \
 
 http_code=`eval $command`
 if [ $http_code == "201" ]; then
-    echo "asset ${YTNAME}.zip uploaded"
+    echo "asset $(basename ${1}) uploaded"
 else
     echo "upload failed with code '$http_code'"
     exit 1
@@ -128,6 +128,7 @@ done
 
 # Cleanup
 rm -rf $CURDIR/${YTNAME}.zip
+rm -rf $CURDIR/${YTNAME}-noroot.apk
 rm -rf $MODULEPATH/youtube && mkdir -p $MODULEPATH/youtube
 rm -rf $MODULEPATH/revanced.apk
 
@@ -139,6 +140,9 @@ build_tools
 
 # Patch Apk
 java -jar $CLI -a $MODULEPATH/youtube/base.apk -o $MODULEPATH/revanced.apk --keystore=$CURDIR/revanced.keystore -b $PATCHES -m $INTEG --experimental -e microg-support || exit
+
+# NoRoot
+java -jar $CLI -a $MODULEPATH/youtube/base.apk -o $CURDIR/${YTNAME}-noroot.apk --keystore=$CURDIR/revanced.keystore -b $PATCHES -m $INTEG --experimental || exit
 
 # Create Module
 echo "Creating ${YTNAME}.zip"
@@ -157,6 +161,7 @@ sed -i "/\"zipUrl\"/s/REVANCEDZIP/$YTNAME/g" $CURDIR/update.json
 # Upload Github Release
 if [[ $GITHUB_TOKEN ]]; then
     upload_release_file $CURDIR/$YTNAME.zip
+    upload_release_file $CURDIR/$YTNAME-noroot.apk
     upload_release_file $CURDIR/update.json
     upload_release_file $CURDIR/changelog.md
 fi
