@@ -148,10 +148,27 @@ dl_yt $VERSION $MODULEPATH/youtube/base.apk
 build_tools
 
 # Patch Apk
-java -jar $CLI -a $MODULEPATH/youtube/base.apk -o $MODULEPATH/revanced.apk --keystore=$CURDIR/revanced.keystore -b $PATCHES -m $INTEG --experimental -e microg-support || exit
+java -jar $CLI \
+    -a $MODULEPATH/youtube/base.apk \
+    -o $MODULEPATH/revanced.apk \
+    --keystore=$CURDIR/revanced.keystore \
+    -b $PATCHES \
+    -m $INTEG \
+    --experimental \
+    -e microg-support \
+    -e premium-heading \
+    -e custom-branding || exit
 
 # NoRoot
-java -jar $CLI -a $MODULEPATH/youtube/base.apk -o $CURDIR/${YTNAME}-noroot.apk --keystore=$CURDIR/revanced.keystore -b $PATCHES -m $INTEG --experimental || exit
+java -jar $CLI \
+    -a $MODULEPATH/youtube/base.apk \
+    -o $CURDIR/${YTNAME}-noroot.apk \
+    --keystore=$CURDIR/revanced.keystore \
+    -b $PATCHES \
+    -m $INTEG \
+    --experimental \
+    -e premium-heading \
+    -e custom-branding || exit
 
 # Create Module
 echo "Creating ${YTNAME}.zip"
