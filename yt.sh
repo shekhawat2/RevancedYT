@@ -64,8 +64,8 @@ echo "revanced-integrations: $INTEGRATIONSVER" >> $CURDIR/changelog.md
 echo "revanced-cli: $CLIVER" >> $CURDIR/changelog.md
 echo "" >> $CURDIR/changelog.md
 echo "$(cat $CURDIR/message)" >> $CURDIR/changelog.md
-sed -i 's/$/\\n/g' ${CURDIR}/changelog.md
-MSG=$(cat ${CURDIR}/changelog.md)
+sed -i 's/$/\\/g' ${CURDIR}/changelog.md
+MSG=$(sed 's/$/n/g' ${CURDIR}/changelog.md)
 }
 
 generate_release_data() {
