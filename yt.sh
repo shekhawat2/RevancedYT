@@ -3,7 +3,6 @@
 CURDIR=$PWD
 WGET_HEADER="User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0"
 MODULEPATH=$CURDIR/RevancedYT
-VERSION=17.29.34
 
 clone() {
 echo "Cleaning and Cloning $1"
@@ -16,9 +15,15 @@ req() {
     wget -q -O "$2" --header="$WGET_HEADER" "$1"
 }
 
+get_latestversion() {
+    url="https://www.apkmirror.com/apk/google-inc/youtube/"
+    VERSION=$(req "$url" - | grep "All version" -A200 | grep app_release | grep -i beta | head -1 | sed 's:.*/youtube-::g;s:-release/.*::g;s:-:.:g')
+    echo "Latest Version: $VERSION"
+}
+
 dl_yt() {
     rm -rf $2
-    echo "Downloading YouTube"
+    echo "Downloading YouTube $1"
     url="https://www.apkmirror.com/apk/google-inc/youtube/youtube-${1//./-}-release/"
     url="https://www.apkmirror.com$(req "$url" - | tr '\n' ' ' | sed -n 's/href="/@/g; s;.*APK</span>[^@]*@\([^#]*\).*;\1;p')"
     url="https://www.apkmirror.com$(req "$url" - | tr '\n' ' ' | sed -n 's;.*href="\(.*key=[^"]*\)">.*;\1;p')"
@@ -52,15 +57,15 @@ CLI=`ls $CURDIR/revanced-cli/build/libs/revanced-cli-$CLIVER-all.jar`
 generate_message() {
 echo "**$YTNAME**" > $CURDIR/changelog.md
 echo "" >> $CURDIR/changelog.md
-echo "$(cat $CURDIR/message)" >> $CURDIR/changelog.md
-echo "" >> $CURDIR/changelog.md
 echo "**Tools:**" >> $CURDIR/changelog.md
 echo "revanced-patcher: $PATCHERVER" >> $CURDIR/changelog.md
 echo "revanced-patches: $PATCHESVER" >> $CURDIR/changelog.md
 echo "revanced-integrations: $INTEGRATIONSVER" >> $CURDIR/changelog.md
 echo "revanced-cli: $CLIVER" >> $CURDIR/changelog.md
 echo "" >> $CURDIR/changelog.md
-MSG=$(sed 's/$/\\n/g' ${CURDIR}/changelog.md)
+echo "$(cat $CURDIR/message)" >> $CURDIR/changelog.md
+sed -i 's/$/\\n/g' ${CURDIR}/changelog.md
+MSG=$(cat ${CURDIR}/changelog.md)
 }
 
 generate_release_data() {
@@ -108,8 +113,12 @@ else
 fi
 }
 
+# Get latest version
+get_latestversion
+
 # Clone Tools
 clone_tools
+
 # Create Release
 for N in {1..9}; do
     YTNAME=RevancedYT_${VERSION}_v${N}
