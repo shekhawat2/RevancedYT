@@ -3,8 +3,13 @@
 name: Revanced
 
 # Allows you to run this workflow manually from the Actions tab
-on: [workflow_dispatch, push]
-
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+  schedule:
+    - cron: "30 0 * * 1,5"
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "build"
