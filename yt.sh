@@ -2,7 +2,9 @@
 
 CURDIR=$PWD
 WGET_HEADER="User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0"
-MODULEPATH=$CURDIR/RevancedYT
+YTMODULEPATH=$CURDIR/RevancedYT
+YTMMODULEPATH=$CURDIR/RevancedYTM
+DATE=$(date +%y%m%d)
 
 clone() {
 echo "Cleaning and Cloning $1"
@@ -15,10 +17,16 @@ req() {
     wget -q -O "$2" --header="$WGET_HEADER" "$1"
 }
 
-get_latestversion() {
+get_latestytversion() {
     url="https://www.apkmirror.com/apk/google-inc/youtube/"
-    VERSION=$(req "$url" - | grep "All version" -A200 | grep app_release | grep -i beta | head -1 | sed 's:.*/youtube-::g;s:-release/.*::g;s:-:.:g')
-    echo "Latest Version: $VERSION"
+    YTVERSION=$(req "$url" - | grep "All version" -A200 | grep app_release | grep -i beta | head -1 | sed 's:.*/youtube-::g;s:-release/.*::g;s:-:.:g')
+    echo "Latest Youtube Version: $YTVERSION"
+}
+
+get_latestytmversion() {
+    url="https://www.apkmirror.com/apk/google-inc/youtube-music/"
+    YTMVERSION=$(req "$url" - | grep "All version" -A200 | grep app_release | head -1 | sed 's:.*/youtube-music-::g;s:-release/.*::g;s:-:.:g')
+    echo "Latest YoutubeMusic Version: $YTMVERSION"
 }
 
 dl_yt() {
@@ -26,6 +34,16 @@ dl_yt() {
     echo "Downloading YouTube $1"
     url="https://www.apkmirror.com/apk/google-inc/youtube/youtube-${1//./-}-release/"
     url="https://www.apkmirror.com$(req "$url" - | tr '\n' ' ' | sed -n 's/href="/@/g; s;.*APK</span>[^@]*@\([^#]*\).*;\1;p')"
+    url="https://www.apkmirror.com$(req "$url" - | tr '\n' ' ' | sed -n 's;.*href="\(.*key=[^"]*\)">.*;\1;p')"
+    url="https://www.apkmirror.com$(req "$url" - | tr '\n' ' ' | sed -n 's;.*href="\(.*key=[^"]*\)">.*;\1;p')"
+    req "$url" "$2"
+}
+
+dl_ytm() {
+    rm -rf $2
+    echo "Downloading YouTubeMusic $1"
+    url="https://www.apkmirror.com/apk/google-inc/youtube/youtube-music-${1//./-}-release/"
+    url="$url$(req "$url" - | grep arm64 -A30 | grep youtube-music | head -1 | sed "s#.*-release/##g;s#/\".*##g")"
     url="https://www.apkmirror.com$(req "$url" - | tr '\n' ' ' | sed -n 's;.*href="\(.*key=[^"]*\)">.*;\1;p')"
     url="https://www.apkmirror.com$(req "$url" - | tr '\n' ' ' | sed -n 's;.*href="\(.*key=[^"]*\)">.*;\1;p')"
     req "$url" "$2"
@@ -55,7 +73,7 @@ CLI=`ls $CURDIR/revanced-cli/build/libs/revanced-cli-$CLIVER-all.jar`
 
 # Generate message
 generate_message() {
-echo "**$YTNAME**" > $CURDIR/changelog.md
+echo "**RevancedYT-$DATE-$N**" > $CURDIR/changelog.md
 echo "" >> $CURDIR/changelog.md
 echo "**Tools:**" >> $CURDIR/changelog.md
 echo "revanced-patcher: $PATCHERVER" >> $CURDIR/changelog.md
@@ -71,9 +89,9 @@ MSG=$(sed 's/$/n/g' ${CURDIR}/changelog.md)
 generate_release_data() {
 cat <<EOF
 {
-"tag_name":"${VERSION}_v${1}",
+"tag_name":"${DATE}_v${1}",
 "target_commitish":"master",
-"name":"$YTNAME",
+"name":"RevancedYT-${DATE}-v${1}",
 "body":"$MSG",
 "draft":false,
 "prerelease":false,
@@ -114,16 +132,19 @@ fi
 }
 
 # Get latest version
-get_latestversion
+get_latestytversion
+get_latestytmversion
 
 # Clone Tools
 clone_tools
 
 # Create Release
 for N in {1..9}; do
-    YTNAME=RevancedYT_${VERSION}_v${N}
+    YTNAME=RevancedYT_${YTVERSION}_${DATE}_v${N}
+    YTMNAME=RevancedYTMusic_${YTMVERSION}_${DATE}_v${N}
     generate_message
-    VERSIONCODE=$(sed "s/\.//g" <<< ${VERSION})${N}
+    YTVERSIONCODE=$(sed "s/\.//g" <<< ${YTVERSION})${N}
+    YTMVERSIONCODE=$(sed "s/\.//g" <<< ${YTMVERSION})${N}
     create_release $N
     http_code=`eval $command`
     if [ $http_code == "201" ]; then
@@ -138,19 +159,28 @@ done
 # Cleanup
 rm -rf $CURDIR/${YTNAME}.zip
 rm -rf $CURDIR/${YTNAME}-noroot.apk
-rm -rf $MODULEPATH/youtube && mkdir -p $MODULEPATH/youtube
-rm -rf $MODULEPATH/revanced.apk
+rm -rf $CURDIR/${YTMNAME}.zip
+rm -rf $CURDIR/${YTMNAME}-noroot.apk
 
-# Download Youtube
-dl_yt $VERSION $MODULEPATH/youtube/base.apk
+rm -rf $YTMODULEPATH/youtube && mkdir -p $YTMODULEPATH/youtube
+rm -rf $YTMMODULEPATH/youtube-music && mkdir -p $YTMMODULEPATH/youtube-music
+rm -rf $YTMODULEPATH/revanced.apk
+rm -rf $YTMMODULEPATH/revanced.apk
 
 # Build Tools
 build_tools
 
+# Generate Message
+generate_message
+
+# Download Youtube
+dl_yt $YTVERSION $YTMODULEPATH/youtube/base.apk
+dl_ytm $YTMVERSION $YTMMODULEPATH/youtube-music/base.apk
+
 # Patch Apk
 java -jar $CLI \
-    -a $MODULEPATH/youtube/base.apk \
-    -o $MODULEPATH/revanced.apk \
+    -a $YTMODULEPATH/youtube/base.apk \
+    -o $YTMODULEPATH/revanced.apk \
     --keystore=$CURDIR/revanced.keystore \
     -b $PATCHES \
     -m $INTEG \
@@ -159,9 +189,18 @@ java -jar $CLI \
     -e premium-heading \
     -e custom-branding || exit
 
+java -jar $CLI \
+    -a $YTMMODULEPATH/youtube-music/base.apk \
+    -o $YTMMODULEPATH/revanced-music.apk \
+    --keystore=$CURDIR/revanced.keystore \
+    -b $PATCHES \
+    -m $INTEG \
+    --experimental \
+    -e music-microg-support || exit
+
 # NoRoot
 java -jar $CLI \
-    -a $MODULEPATH/youtube/base.apk \
+    -a $YTMODULEPATH/youtube/base.apk \
     -o $CURDIR/${YTNAME}-noroot.apk \
     --keystore=$CURDIR/revanced.keystore \
     -b $PATCHES \
@@ -170,24 +209,40 @@ java -jar $CLI \
     -e premium-heading \
     -e custom-branding || exit
 
+java -jar $CLI \
+    -a $YTMMODULEPATH/youtube-music/base.apk \
+    -o $CURDIR/${YTMNAME}-noroot.apk \
+    --keystore=$CURDIR/revanced.keystore \
+    -b $PATCHES \
+    -m $INTEG \
+    --experimental || exit
+
 # Create Module
 echo "Creating ${YTNAME}.zip"
-sed -i "/version=/s/=.*/=$VERSION/g" $MODULEPATH/module.prop
-sed -i "/versionCode=/s/=.*/=$VERSIONCODE/g" $MODULEPATH/module.prop
-cd $MODULEPATH && zip -qr9 $CURDIR/$YTNAME.zip *
+sed -i "/version=/s/=.*/=$YTVERSION/g" $YTMODULEPATH/module.prop
+sed -i "/versionCode=/s/=.*/=$YTVERSIONCODE/g" $YTMODULEPATH/module.prop
+cd $YTMODULEPATH && zip -qr9 $CURDIR/$YTNAME.zip *
 
-# Generate Message
-generate_message
+echo "Creating ${YTMNAME}.zip"
+sed -i "/version=/s/=.*/=$YTMVERSION/g" $YTMMODULEPATH/module.prop
+sed -i "/versionCode=/s/=.*/=$YTMVERSIONCODE/g" $YTMMODULEPATH/module.prop
+cd $YTMMODULEPATH && zip -qr9 $CURDIR/$YTMNAME.zip *
 
 # Generate updateJson
-sed -i "/\"version\"/s/:\ .*/:\ \"$VERSION\",/g" $CURDIR/update.json
-sed -i "/\"versionCode\"/s/:\ .*/:\ $VERSIONCODE,/g" $CURDIR/update.json
-sed -i "/\"zipUrl\"/s/REVANCEDZIP/$YTNAME/g" $CURDIR/update.json
+sed "/\"version\"/s/:\ .*/:\ \"$YTVERSION\",/g; \
+    /\"versionCode\"/s/:\ .*/:\ $YTVERSIONCODE,/g; \
+    /\"zipUrl\"/s/REVANCEDZIP/$YTNAME/g" $CURDIR/update.json > $CURDIR/ytupdate.json
+sed "/\"version\"/s/:\ .*/:\ \"$YTMVERSION\",/g; \
+    /\"versionCode\"/s/:\ .*/:\ $YTMVERSIONCODE,/g; \
+    /\"zipUrl\"/s/REVANCEDZIP/$YTMNAME/g" $CURDIR/update.json > $CURDIR/ytmupdate.json
 
 # Upload Github Release
 if [[ $GITHUB_TOKEN ]]; then
     upload_release_file $CURDIR/$YTNAME.zip
     upload_release_file $CURDIR/$YTNAME-noroot.apk
-    upload_release_file $CURDIR/update.json
+    upload_release_file $CURDIR/$YTMNAME.zip
+    upload_release_file $CURDIR/$YTMNAME-noroot.apk
+    upload_release_file $CURDIR/ytupdate.json
+    upload_release_file $CURDIR/ytmupdate.json
     upload_release_file $CURDIR/changelog.md
 fi

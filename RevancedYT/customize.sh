@@ -12,10 +12,6 @@ done
 pm install-commit $SESSION
 rm -rf $TPDIR
 
-# Remove Old ReVanced
-rm -rf /data/adb/revanced
-rm -rf /data/adb/service.d/revanced.sh
-
 # Mount for Now
 base_path=$MODPATH/revanced.apk
 stock_path=$( pm path com.google.android.youtube | grep base | sed 's/package://g' )
