@@ -1,0 +1,7 @@
+id=revanced-music
+name=YouTubeMusic Revanced
+version=1
+versionCode=1
+author=Shekhawat2
+description=RevancedYTMusic Module by @Shekhawat2
+updateJson=https://github.com/shekhawat2/RevancedYT/releases/latest/download/ytmupdate.json
