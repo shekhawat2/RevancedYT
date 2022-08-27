@@ -186,7 +186,6 @@ java -jar $CLI \
     -m $INTEG \
     --experimental \
     -e microg-support \
-    -e premium-heading \
     -e custom-branding || exit
 
 java -jar $CLI \
@@ -206,7 +205,6 @@ java -jar $CLI \
     -b $PATCHES \
     -m $INTEG \
     --experimental \
-    -e premium-heading \
     -e custom-branding || exit
 
 java -jar $CLI \
