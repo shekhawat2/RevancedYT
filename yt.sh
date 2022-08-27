@@ -143,8 +143,8 @@ for N in {1..9}; do
     YTNAME=RevancedYT_${YTVERSION}_${DATE}_v${N}
     YTMNAME=RevancedYTMusic_${YTMVERSION}_${DATE}_v${N}
     generate_message
-    YTVERSIONCODE=$(sed "s/\.//g" <<< ${YTVERSION})${N}
-    YTMVERSIONCODE=$(sed "s/\.//g" <<< ${YTMVERSION})${N}
+    YTVERSIONCODE=${DATE}${N}
+    YTMVERSIONCODE=${DATE}${N}
     create_release $N
     http_code=`eval $command`
     if [ $http_code == "201" ]; then
