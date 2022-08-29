@@ -138,6 +138,22 @@ get_latestytmversion
 # Clone Tools
 clone_tools
 
+# Cleanup
+rm -rf $CURDIR/*.zip
+rm -rf $CURDIR/*.apk
+rm -rf $YTMODULEPATH/youtube && mkdir -p $YTMODULEPATH/youtube
+rm -rf $YTMMODULEPATH/youtube-music && mkdir -p $YTMMODULEPATH/youtube-music
+rm -rf $YTMODULEPATH/revanced.apk
+rm -rf $YTMMODULEPATH/revanced.apk
+
+# Download Youtube
+dl_yt $YTVERSION $YTMODULEPATH/youtube/base.apk
+
+# Download Youtube Music
+dl_ytm $YTMVERSION $CURDIR/$YTMVERSION.zip
+unzip -j -q $CURDIR/$YTMVERSION.zip *.apk -d $YTMMODULEPATH/youtube-music || exit 1
+rm $CURDIR/$YTMVERSION.zip
+
 # Create Release
 for N in {1..9}; do
     YTNAME=RevancedYT_${YTVERSION}_${DATE}_v${N}
@@ -156,26 +172,11 @@ for N in {1..9}; do
     fi
 done
 
-# Cleanup
-rm -rf $CURDIR/${YTNAME}.zip
-rm -rf $CURDIR/${YTNAME}-noroot.apk
-rm -rf $CURDIR/${YTMNAME}.zip
-rm -rf $CURDIR/${YTMNAME}-noroot.apk
-
-rm -rf $YTMODULEPATH/youtube && mkdir -p $YTMODULEPATH/youtube
-rm -rf $YTMMODULEPATH/youtube-music && mkdir -p $YTMMODULEPATH/youtube-music
-rm -rf $YTMODULEPATH/revanced.apk
-rm -rf $YTMMODULEPATH/revanced.apk
-
 # Build Tools
 build_tools
 
 # Generate Message
 generate_message
-
-# Download Youtube
-dl_yt $YTVERSION $YTMODULEPATH/youtube/base.apk
-dl_ytm $YTMVERSION $YTMMODULEPATH/youtube-music/base.apk
 
 # Patch Apk
 java -jar $CLI \
