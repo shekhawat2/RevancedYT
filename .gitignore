@@ -4,5 +4,6 @@ revanced-cli
 revanced-integrations
 *.apk
 *.json
+*.md
 *.zip
 fm
