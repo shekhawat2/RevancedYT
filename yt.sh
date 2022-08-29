@@ -139,12 +139,10 @@ get_latestytmversion
 clone_tools
 
 # Cleanup
-rm -rf $CURDIR/*.zip
-rm -rf $CURDIR/*.apk
+find $CURDIR -type f -name *.apk -exec rm -rf {} \;
+find $CURDIR -type f -name *.zip -exec rm -rf {} \;
 rm -rf $YTMODULEPATH/youtube && mkdir -p $YTMODULEPATH/youtube
 rm -rf $YTMMODULEPATH/youtube-music && mkdir -p $YTMMODULEPATH/youtube-music
-rm -rf $YTMODULEPATH/revanced.apk
-rm -rf $YTMMODULEPATH/revanced.apk
 
 # Download Youtube
 dl_yt $YTVERSION $YTMODULEPATH/youtube/base.apk
