@@ -155,6 +155,7 @@ unzip -j -q $CURDIR/$YTMVERSION.zip *.apk -d $YTMMODULEPATH/youtube-music || exi
 rm $CURDIR/$YTMVERSION.zip
 
 # Create Release
+if [[ $GITHUB_TOKEN ]]; then
 for N in {1..9}; do
     YTNAME=RevancedYT_${YTVERSION}_${DATE}_v${N}
     YTMNAME=RevancedYTMusic_${YTMVERSION}_${DATE}_v${N}
@@ -171,6 +172,7 @@ for N in {1..9}; do
         continue
     fi
 done
+fi
 
 # Build Tools
 build_tools
