@@ -152,9 +152,13 @@ rm -rf $YTMMODULEPATH/youtube-music && mkdir -p $YTMMODULEPATH/youtube-music
 dl_yt $YTVERSION $YTMODULEPATH/youtube/base.apk
 
 # Download Youtube Music
-dl_ytm $YTMVERSION $CURDIR/$YTMVERSION.zip
-unzip -j -q $CURDIR/$YTMVERSION.zip *.apk -d $YTMMODULEPATH/youtube-music || exit 1
-rm $CURDIR/$YTMVERSION.zip
+dl_ytm $YTMVERSION $CURDIR/$YTMVERSION.apk
+if [ "$(unzip -l -q $CURDIR/$YTMVERSION.apk | grep apk)" ]; then
+    unzip -j -q $CURDIR/$YTMVERSION.zip *.apk -d $YTMMODULEPATH/youtube-music || exit 1
+    rm $CURDIR/$YTMVERSION.zip
+else
+    mv $CURDIR/$YTMVERSION.apk $YTMMODULEPATH/youtube-music/base.apk
+fi
 
 # Create Release
 if [[ $GITHUB_TOKEN ]]; then
