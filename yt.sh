@@ -5,6 +5,7 @@ WGET_HEADER="User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/2010010
 YTMODULEPATH=$CURDIR/RevancedYT
 YTMMODULEPATH=$CURDIR/RevancedYTM
 DATE=$(date +%y%m%d)
+SAFEYTM=5.22.54
 
 clone() {
 echo "Cleaning and Cloning $1"
@@ -134,6 +135,9 @@ fi
 # Get latest version
 get_latestytversion
 get_latestytmversion
+if [ ${SAFEYTM//./} -gt ${YTMVERSION//./} ]; then
+    YTMVERSION=$SAFEYTM
+fi
 
 # Clone Tools
 clone_tools
