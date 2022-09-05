@@ -6,6 +6,7 @@ YTMODULEPATH=$CURDIR/RevancedYT
 YTMMODULEPATH=$CURDIR/RevancedYTM
 DATE=$(date +%y%m%d)
 SAFEYTM=5.22.54
+BSDIFF=$CURDIR/bin/bsdiff
 
 clone() {
 echo "Cleaning and Cloning $1"
@@ -225,6 +226,10 @@ java -jar $CLI \
     -b $PATCHES \
     -m $INTEG \
     --experimental || exit
+
+# Create Patch
+$BSDIFF $YTMODULEPATH/youtube/base.apk $YTMODULEPATH/revanced.apk $YTMODULEPATH/diff.patch
+rm $YTMODULEPATH/revanced.apk
 
 # Create Module
 echo "Creating ${YTNAME}.zip"

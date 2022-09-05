@@ -3,14 +3,20 @@ stock_path=$( pm path com.google.android.youtube | grep base | sed 's/package://
 if [[ '$stock_path' ]] ; then umount -l $stock_path; fi
 
 # Install Youtube
-TPDIR=$MODPATH/youtube
+ui_print "Installing Stock Youtube..."
 SESSION=$(pm install-create -r | grep -oE '[0-9]+')
-APKS="$(ls $TPDIR)"
+APKS="$(ls $MODPATH/youtube)"
 for APK in $APKS; do
-pm install-write $SESSION $APK $TPDIR/$APK
+pm install-write $SESSION $APK $MODPATH/youtube/$APK > /dev/null
 done
 pm install-commit $SESSION
-rm -rf $TPDIR
+
+# Merge Patch
+ui_print "Patching Stock Youtube..."
+BSPATCH=$MODPATH/tools/bspatch
+chmod +x $BSPATCH
+$BSPATCH $MODPATH/youtube/base.apk $MODPATH/revanced.apk $MODPATH/diff.patch
+rm -rf $MODPATH/youtube $MODPATH/tools $MODPATH/diff.patch
 
 # Mount for Now
 base_path=$MODPATH/revanced.apk
