@@ -149,7 +149,6 @@ rm -rf $YTMODULEPATH/youtube && mkdir -p $YTMODULEPATH/youtube
 rm -rf $YTMMODULEPATH/youtube-music && mkdir -p $YTMMODULEPATH/youtube-music
 
 # Download Youtube bundle
-YTVERSION=17.33.42
 dl_yt $YTVERSION $CURDIR/$YTVERSION.zip BUNDLE
 unzip -j -q $CURDIR/$YTVERSION.zip *.apk -d $YTMODULEPATH/youtube || exit 1
 rm $CURDIR/$YTVERSION.zip
