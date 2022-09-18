@@ -3,7 +3,7 @@ stock_path=$( pm path com.google.android.apps.youtube.music | grep base | sed 's
 if [[ '$stock_path' ]] ; then umount -l $stock_path; fi
 
 # Uninstall Old YoutubeMusic
-pm uninstall com.google.android.apps.youtube.music > /dev/null | true
+pm uninstall -k com.google.android.apps.youtube.music > /dev/null | true
 
 # Install YoutubeMusic
 TPDIR=$MODPATH/youtube-music
