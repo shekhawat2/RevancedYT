@@ -32,9 +32,9 @@ get_latestytmversion() {
 
 dl_yt() {
     rm -rf $2
-    echo "Downloading YouTube $1 $3"
+    echo "Downloading YouTube $1"
     url="https://www.apkmirror.com/apk/google-inc/youtube/youtube-${1//./-}-release/"
-    url="$url$(req "$url" - | grep Variant -A50 | grep ">$3<" -A2 | grep android-apk-download | sed "s#.*-release/##g;s#/\#.*##g")"
+    url="$url$(req "$url" - | grep Variant -A50 | grep ">APK<" -A2 | grep android-apk-download | sed "s#.*-release/##g;s#/\#.*##g")"
     url="https://www.apkmirror.com$(req "$url" - | tr '\n' ' ' | sed -n 's;.*href="\(.*key=[^"]*\)">.*;\1;p')"
     url="https://www.apkmirror.com$(req "$url" - | tr '\n' ' ' | sed -n 's;.*href="\(.*key=[^"]*\)">.*;\1;p')"
     req "$url" "$2"
@@ -148,13 +148,8 @@ find $CURDIR -type f -name *.zip -exec rm -rf {} \;
 rm -rf $YTMODULEPATH/youtube && mkdir -p $YTMODULEPATH/youtube
 rm -rf $YTMMODULEPATH/youtube-music && mkdir -p $YTMMODULEPATH/youtube-music
 
-# Download Youtube bundle
-dl_yt $YTVERSION $CURDIR/$YTVERSION.zip BUNDLE
-unzip -j -q $CURDIR/$YTVERSION.zip *.apk -d $YTMODULEPATH/youtube || exit 1
-rm $CURDIR/$YTVERSION.zip
-
-# Download Youtube apk
-dl_yt $YTVERSION $CURDIR/$YTVERSION.apk APK
+# Download Youtube
+dl_yt $YTVERSION $YTMODULEPATH/youtube/base.apk
 
 # Download Youtube Music
 dl_ytm $YTMVERSION $CURDIR/$YTMVERSION.apk
@@ -214,7 +209,7 @@ java -jar $CLI \
 
 # NoRoot
 java -jar $CLI \
-    -a $CURDIR/$YTVERSION.apk \
+    -a $YTMODULEPATH/youtube/base.apk \
     -o $CURDIR/${YTNAME}-noroot.apk \
     --keystore=$CURDIR/revanced.keystore \
     -b $PATCHES \
