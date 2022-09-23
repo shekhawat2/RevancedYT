@@ -227,9 +227,12 @@ java -jar $CLI \
     -m $INTEG \
     --experimental || exit
 
-# Create Patch
+# Create YT Patch
 $BSDIFF $YTMODULEPATH/youtube/base.apk $YTMODULEPATH/revanced.apk $YTMODULEPATH/diff.patch
 rm $YTMODULEPATH/revanced.apk
+# Create YTM Patch
+$BSDIFF $YTMMODULEPATH/youtube-music/base.apk $YTMMODULEPATH/revanced-music.apk $YTMMODULEPATH/diff.patch
+rm $YTMMODULEPATH/revanced-music.apk
 
 # Create Module
 echo "Creating ${YTNAME}.zip"
