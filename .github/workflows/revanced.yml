@@ -25,17 +25,11 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Initialization environment
-        run: |
-          sudo apt update
-          sudo apt install git
-          python3 -m pip install telethon
       - name: Setup JDK
         uses: actions/setup-java@v2
         with:
           java-version: '17'
           distribution: 'adopt'
-          cache: gradle
       - name: Start building
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
