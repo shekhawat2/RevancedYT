@@ -1,5 +1,7 @@
+PACKAGE_NAME=com.google.android.youtube
+
 # Unmount Old ReVanced
-stock_path=$( pm path com.google.android.youtube | grep base | sed 's/package://g' )
+stock_path=$( pm path $PACKAGE_NAME | grep base | sed 's/package://g' )
 if [[ '$stock_path' ]] ; then umount -l $stock_path; fi
 
 # Install Youtube
@@ -20,7 +22,7 @@ rm -rf $MODPATH/youtube $MODPATH/tools $MODPATH/diff.patch
 
 # Mount for Now
 base_path=$MODPATH/revanced.apk
-stock_path=$( pm path com.google.android.youtube | grep base | sed 's/package://g' )
+stock_path=$( pm path $PACKAGE_NAME | grep base | sed 's/package://g' )
 chcon u:object_r:apk_data_file:s0 $base_path
 mount -o bind $base_path $stock_path
-am force-stop com.google.android.youtube
+am force-stop $PACKAGE_NAME
