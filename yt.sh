@@ -9,10 +9,10 @@ SAFEYTM=5.22.54
 BSDIFF=$CURDIR/bin/bsdiff
 
 clone() {
-echo "Cleaning and Cloning $1"
-rm -rf $3
-URL=https://github.com/revanced
-git clone --depth=1 $URL/$1 -b $2 $CURDIR/$3  2> /dev/null
+    echo "Cleaning and Cloning $1"
+    rm -rf $3
+    URL=https://github.com/revanced
+    git clone --depth=1 $URL/$1 -b $2 $CURDIR/$3  2> /dev/null
 }
 
 req() {
@@ -52,40 +52,40 @@ dl_ytm() {
 }
 
 clone_tools() {
-clone revanced-patcher main revanced-patcher
-clone revanced-patches main revanced-patches
-clone revanced-cli main revanced-cli
-clone revanced-integrations main revanced-integrations
-PATCHERVER=$(grep version $CURDIR/revanced-patcher/gradle.properties | tr -dc .0-9)
-PATCHESVER=$(grep version $CURDIR/revanced-patches/gradle.properties | tr -dc .0-9)
-INTEGRATIONSVER=$(grep version $CURDIR/revanced-integrations/gradle.properties | tr -dc .0-9)
-CLIVER=$(grep version $CURDIR/revanced-cli/gradle.properties | tr -dc .0-9)
+    clone revanced-patcher main revanced-patcher
+    clone revanced-patches main revanced-patches
+    clone revanced-cli main revanced-cli
+    clone revanced-integrations main revanced-integrations
+    PATCHERVER=$(grep version $CURDIR/revanced-patcher/gradle.properties | tr -dc .0-9)
+    PATCHESVER=$(grep version $CURDIR/revanced-patches/gradle.properties | tr -dc .0-9)
+    INTEGRATIONSVER=$(grep version $CURDIR/revanced-integrations/gradle.properties | tr -dc .0-9)
+    CLIVER=$(grep version $CURDIR/revanced-cli/gradle.properties | tr -dc .0-9)
 }
 
 build_tools() {
-cd $CURDIR/revanced-patcher && sh gradlew build > /dev/null
-cd $CURDIR/revanced-patches && sh gradlew build > /dev/null
-cd $CURDIR/revanced-integrations && sh gradlew build > /dev/null
-cd $CURDIR/revanced-cli && sh gradlew build > /dev/null
-PATCHER=`ls $CURDIR/revanced-patcher/build/libs/revanced-patcher-$PATCHERVER.jar`
-PATCHES=`ls $CURDIR/revanced-patches/build/libs/revanced-patches-$PATCHESVER.jar`
-INTEG=`ls $CURDIR/revanced-integrations/app/build/outputs/apk/release/app-release-unsigned.apk`
-CLI=`ls $CURDIR/revanced-cli/build/libs/revanced-cli-$CLIVER-all.jar`
+    cd $CURDIR/revanced-patcher && sh gradlew build > /dev/null
+    cd $CURDIR/revanced-patches && sh gradlew build > /dev/null
+    cd $CURDIR/revanced-integrations && sh gradlew build > /dev/null
+    cd $CURDIR/revanced-cli && sh gradlew build > /dev/null
+    PATCHER=`ls $CURDIR/revanced-patcher/build/libs/revanced-patcher-$PATCHERVER.jar`
+    PATCHES=`ls $CURDIR/revanced-patches/build/libs/revanced-patches-$PATCHESVER.jar`
+    INTEG=`ls $CURDIR/revanced-integrations/app/build/outputs/apk/release/app-release-unsigned.apk`
+    CLI=`ls $CURDIR/revanced-cli/build/libs/revanced-cli-$CLIVER-all.jar`
 }
 
 # Generate message
 generate_message() {
-echo "**RevancedYT-$DATE-$N**" > $CURDIR/changelog.md
-echo "" >> $CURDIR/changelog.md
-echo "**Tools:**" >> $CURDIR/changelog.md
-echo "revanced-patcher: $PATCHERVER" >> $CURDIR/changelog.md
-echo "revanced-patches: $PATCHESVER" >> $CURDIR/changelog.md
-echo "revanced-integrations: $INTEGRATIONSVER" >> $CURDIR/changelog.md
-echo "revanced-cli: $CLIVER" >> $CURDIR/changelog.md
-echo "" >> $CURDIR/changelog.md
-echo "$(cat $CURDIR/message)" >> $CURDIR/changelog.md
-sed -i 's/$/\\/g' ${CURDIR}/changelog.md
-MSG=$(sed 's/$/n/g' ${CURDIR}/changelog.md)
+    echo "**RevancedYT-$DATE-$N**" > $CURDIR/changelog.md
+    echo "" >> $CURDIR/changelog.md
+    echo "**Tools:**" >> $CURDIR/changelog.md
+    echo "revanced-patcher: $PATCHERVER" >> $CURDIR/changelog.md
+    echo "revanced-patches: $PATCHESVER" >> $CURDIR/changelog.md
+    echo "revanced-integrations: $INTEGRATIONSVER" >> $CURDIR/changelog.md
+    echo "revanced-cli: $CLIVER" >> $CURDIR/changelog.md
+    echo "" >> $CURDIR/changelog.md
+    echo "$(cat $CURDIR/message)" >> $CURDIR/changelog.md
+    sed -i 's/$/\\/g' ${CURDIR}/changelog.md
+    MSG=$(sed 's/$/n/g' ${CURDIR}/changelog.md)
 }
 
 generate_release_data() {
