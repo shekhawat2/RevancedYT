@@ -161,6 +161,9 @@ else
     mv $CURDIR/$YTMVERSION.apk $YTMMODULEPATH/youtube-music/base.apk
 fi
 
+# Build Tools
+build_tools
+
 # Create Release
 if [[ $GITHUB_TOKEN ]]; then
 for N in {1..9}; do
@@ -180,9 +183,6 @@ for N in {1..9}; do
     fi
 done
 fi
-
-# Build Tools
-build_tools
 
 # Generate Message
 generate_message
