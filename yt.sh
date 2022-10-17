@@ -5,7 +5,6 @@ WGET_HEADER="User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/2010010
 YTMODULEPATH=$CURDIR/RevancedYT
 YTMMODULEPATH=$CURDIR/RevancedYTM
 DATE=$(date +%y%m%d)
-SAFEYTM=5.22.54
 BSDIFF=$CURDIR/bin/bsdiff
 
 clone() {
@@ -27,7 +26,7 @@ get_latestytversion() {
 
 get_latestytmversion() {
     url="https://www.apkmirror.com/apk/google-inc/youtube-music/"
-    YTMVERSION=$(req "$url" - | grep "All version" -A200 | grep app_release | head -1 | sed 's:.*/youtube-music-::g;s:-release/.*::g;s:-:.:g')
+    YTMVERSION=$(req "$url" - | grep "All version" -A200 | grep app_release | sed 's:.*/youtube-music-::g;s:-release/.*::g;s:-:.:g' | sort -r | head -1)
     echo "Latest YoutubeMusic Version: $YTMVERSION"
 }
 
@@ -136,9 +135,6 @@ fi
 # Get latest version
 get_latestytversion
 get_latestytmversion
-if [ ${SAFEYTM//./} -gt ${YTMVERSION//./} ]; then
-    YTMVERSION=$SAFEYTM
-fi
 
 # Clone Tools
 clone_tools
