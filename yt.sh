@@ -104,14 +104,18 @@ EOF
 }
 
 create_release() {
+url=https://api.github.com/repos/shekhawat2/RevancedYT/releases
 command="curl -s -o /dev/null -w '%{http_code}' \
     -X POST \
     -H 'Accept: application/vnd.github+json' \
     -H 'Authorization: token ${GITHUB_TOKEN}' \
-    https://api.github.com/repos/shekhawat2/RevancedYT/releases \
+    $url \
     -d '$(generate_release_data ${1})'"
-
-upload_url=$(jq -r 'first | .upload_url' <<< $(curl --silent https://api.github.com/repos/shekhawat2/RevancedYT/releases))
+if ($PRERELEASE); then
+    upload_url=$(jq -r 'map(select(.prerelease)) | first | .upload_url' <<< $(curl --silent $url))
+else
+    upload_url=$(jq -r 'first | .upload_url' <<< $(curl --silent $url))
+fi
 }
 
 upload_release_file() {
