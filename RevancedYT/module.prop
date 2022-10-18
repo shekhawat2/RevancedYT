@@ -1,7 +1,7 @@
-id=revanced
-name=YouTube Revanced
+id=_NAME_
+name=Youtube _NAME_
 version=1
 versionCode=1
 author=Shekhawat2
-description=RevancedYT Module by @Shekhawat2
-updateJson=https://github.com/shekhawat2/RevancedYT/releases/latest/download/ytupdate.json
+description=Youtube _NAME_ Module by @Shekhawat2
+updateJson=https://github.com/shekhawat2/RevancedYT/releases/latest/download/_NAME_.json
