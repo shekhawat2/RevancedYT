@@ -110,20 +110,16 @@ command="curl -s -o /dev/null -w '%{http_code}' \
     -H 'Authorization: token ${GITHUB_TOKEN}' \
     https://api.github.com/repos/shekhawat2/RevancedYT/releases \
     -d '$(generate_release_data ${1})'"
+
+upload_url=$(jq -r 'first | .upload_url' <<< $(curl --silent https://api.github.com/repos/shekhawat2/RevancedYT/releases))
 }
 
 upload_release_file() {
-curl -s -o latest.json \
-    -H "Accept: application/vnd.github+json" \
-    -H "Authorization: token ${GITHUB_TOKEN}" \
-    https://api.github.com/repos/shekhawat2/RevancedYT/releases/latest
-
-url=`jq -r .upload_url latest.json | cut -d { -f'1'`
 command="curl -s -o /dev/null -w '%{http_code}' \
     -H 'Authorization: token ${GITHUB_TOKEN}' \
     -H 'Content-Type: $(file -b --mime-type ${CURDIR}/${YTNAME}.zip)' \
     --data-binary @${1} \
-    ${url}?name=$(basename ${1})"
+    ${upload_url}?name=$(basename ${1})"
 
 http_code=`eval $command`
 if [ $http_code == "201" ]; then
