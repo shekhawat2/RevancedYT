@@ -6,6 +6,8 @@ YTMODULEPATH=$CURDIR/RevancedYT
 YTMMODULEPATH=$CURDIR/RevancedYTM
 DATE=$(date +%y%m%d)
 BSDIFF=$CURDIR/bin/bsdiff
+DRAFT=false
+if [ x${1} == xtest ]; then DRAFT=true; fi
 
 clone() {
     echo "Cleaning and Cloning $1"
@@ -94,7 +96,7 @@ cat <<EOF
 "target_commitish":"master",
 "name":"RevancedYT-${DATE}-v${1}",
 "body":"$MSG",
-"draft":false,
+"draft":${DRAFT},
 "prerelease":false,
 "generate_release_notes":false
 }
@@ -102,34 +104,29 @@ EOF
 }
 
 create_release() {
-command="curl -s -o /dev/null -w '%{http_code}' \
-    -X POST \
-    -H 'Accept: application/vnd.github+json' \
-    -H 'Authorization: token ${GITHUB_TOKEN}' \
-    https://api.github.com/repos/shekhawat2/RevancedYT/releases \
-    -d '$(generate_release_data ${1})'"
+    url=https://api.github.com/repos/shekhawat2/RevancedYT/releases
+    command="curl -s \
+        -X POST \
+        -H 'Accept: application/vnd.github+json' \
+        -H 'Authorization: token ${GITHUB_TOKEN}' \
+        $url \
+        -d '$(generate_release_data ${1})' | jq -r .upload_url | cut -d { -f'1'"
 }
 
 upload_release_file() {
-curl -s -o latest.json \
-    -H "Accept: application/vnd.github+json" \
-    -H "Authorization: token ${GITHUB_TOKEN}" \
-    https://api.github.com/repos/shekhawat2/RevancedYT/releases/latest
+    command="curl -s -o /dev/null -w '%{http_code}' \
+        -H 'Authorization: token ${GITHUB_TOKEN}' \
+        -H 'Content-Type: $(file -b --mime-type ${CURDIR}/${YTNAME}.zip)' \
+        --data-binary @${1} \
+        ${upload_url}?name=$(basename ${1})"
 
-url=`jq -r .upload_url latest.json | cut -d { -f'1'`
-command="curl -s -o /dev/null -w '%{http_code}' \
-    -H 'Authorization: token ${GITHUB_TOKEN}' \
-    -H 'Content-Type: $(file -b --mime-type ${CURDIR}/${YTNAME}.zip)' \
-    --data-binary @${1} \
-    ${url}?name=$(basename ${1})"
-
-http_code=`eval $command`
-if [ $http_code == "201" ]; then
-    echo "asset $(basename ${1}) uploaded"
-else
-    echo "upload failed with code '$http_code'"
-    exit 1
-fi
+    http_code=`eval $command`
+    if [ $http_code == "201" ]; then
+        echo "asset $(basename ${1}) uploaded"
+    else
+        echo "upload failed with code '$http_code'"
+        exit 1
+    fi
 }
 
 # Get latest version
@@ -169,11 +166,12 @@ for N in {1..9}; do
     YTVERSIONCODE=${DATE}${N}
     YTMVERSIONCODE=${DATE}${N}
     create_release $N
-    http_code=`eval $command`
-    if [ $http_code == "201" ]; then
+    upload_url=`eval $command`
+    echo $upload_url
+    if (grep 'https' <<< $upload_url); then
         echo "created release ${YTNAME}"
         break
-    elif [ $http_code == "422" ]; then
+    else
         echo "Trying Again to create release"
         continue
     fi
@@ -250,6 +248,7 @@ sed "/\"version\"/s/:\ .*/:\ \"$YTMVERSION\",/g; \
     /\"zipUrl\"/s/REVANCEDZIP/$YTMNAME/g" $CURDIR/update.json > $CURDIR/ytmupdate.json
 
 # Upload Github Release
+echo $upload_url
 if [[ $GITHUB_TOKEN ]]; then
     upload_release_file $CURDIR/$YTNAME.zip
     upload_release_file $CURDIR/$YTNAME-noroot.apk
