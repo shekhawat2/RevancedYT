@@ -6,6 +6,8 @@ YTMODULEPATH=$CURDIR/RevancedYT
 YTMMODULEPATH=$CURDIR/RevancedYTM
 DATE=$(date +%y%m%d)
 BSDIFF=$CURDIR/bin/bsdiff
+PRERELEASE=false
+if [ x${1} == xtest ]; then PRERELEASE=true; fi
 
 clone() {
     echo "Cleaning and Cloning $1"
@@ -95,7 +97,7 @@ cat <<EOF
 "name":"RevancedYT-${DATE}-v${1}",
 "body":"$MSG",
 "draft":false,
-"prerelease":false,
+"prerelease":${PRERELEASE},
 "generate_release_notes":false
 }
 EOF

@@ -1,12 +1,13 @@
 # This is a basic workflow to help you get started with Actions
 
-name: Revanced Release
+name: Revanced Test
 
 # Allows you to run this workflow manually from the Actions tab
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "30 0 * * 1,5"
+  push:
+    branches:
+      - master
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "build"
@@ -30,4 +31,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ./yt.sh
+          ./yt.sh test
