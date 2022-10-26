@@ -12,7 +12,7 @@ if [ x${1} == xtest ]; then DRAFT=true; fi
 clone() {
     echo "Cleaning and Cloning $1"
     rm -rf $3
-    URL=https://github.com/revanced
+    URL=https://github.com/
     git clone --depth=1 $URL/$1 -b $2 $CURDIR/$3  2> /dev/null
 }
 
@@ -53,10 +53,10 @@ dl_ytm() {
 }
 
 clone_tools() {
-    clone revanced-patcher main revanced-patcher
-    clone revanced-patches main revanced-patches
-    clone revanced-cli main revanced-cli
-    clone revanced-integrations main revanced-integrations
+    clone revanced/revanced-patcher main revanced-patcher
+    clone shekhawat2/revanced-patches main revanced-patches
+    clone revanced/revanced-cli main revanced-cli
+    clone revanced/revanced-integrations main revanced-integrations
     PATCHERVER=$(grep version $CURDIR/revanced-patcher/gradle.properties | tr -dc .0-9)
     PATCHESVER=$(grep version $CURDIR/revanced-patches/gradle.properties | tr -dc .0-9)
     INTEGRATIONSVER=$(grep version $CURDIR/revanced-integrations/gradle.properties | tr -dc .0-9)
