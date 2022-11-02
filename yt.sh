@@ -22,7 +22,7 @@ req() {
 
 get_latestytversion() {
     url="https://www.apkmirror.com/apk/google-inc/youtube/"
-    YTVERSION=$(req "$url" - | grep "All version" -A200 | grep app_release | grep -v beta | head -1 | sed 's:.*/youtube-::g;s:-release/.*::g;s:-:.:g')
+    YTVERSION=$(req "$url" - | grep "All version" -A200 | grep app_release | sed 's:.*/youtube-::g;s:-release/.*::g;s:-:.:g' | sort -r | head -1)
     echo "Latest Youtube Version: $YTVERSION"
 }
 
