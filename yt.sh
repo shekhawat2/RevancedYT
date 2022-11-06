@@ -13,7 +13,7 @@ clone() {
     echo "Cleaning and Cloning $1"
     rm -rf $3
     URL=https://github.com/revanced
-    git clone --depth=1 $URL/$1 -b $2 $CURDIR/$3  2> /dev/null
+    git clone --depth=1 $URL/$1 -b $2 $CURDIR/$3 2>/dev/null
 }
 
 req() {
@@ -64,33 +64,33 @@ clone_tools() {
 }
 
 build_tools() {
-    cd $CURDIR/revanced-patcher && sh gradlew build > /dev/null
-    cd $CURDIR/revanced-patches && sh gradlew build > /dev/null
-    cd $CURDIR/revanced-integrations && sh gradlew build > /dev/null
-    cd $CURDIR/revanced-cli && sh gradlew build > /dev/null
-    PATCHER=`ls $CURDIR/revanced-patcher/build/libs/revanced-patcher-$PATCHERVER.jar`
-    PATCHES=`ls $CURDIR/revanced-patches/build/libs/revanced-patches-$PATCHESVER.jar`
-    INTEG=`ls $CURDIR/revanced-integrations/app/build/outputs/apk/release/app-release-unsigned.apk`
-    CLI=`ls $CURDIR/revanced-cli/build/libs/revanced-cli-$CLIVER-all.jar`
+    cd $CURDIR/revanced-patcher && sh gradlew build >/dev/null
+    cd $CURDIR/revanced-patches && sh gradlew build >/dev/null
+    cd $CURDIR/revanced-integrations && sh gradlew build >/dev/null
+    cd $CURDIR/revanced-cli && sh gradlew build >/dev/null
+    PATCHER=$(ls $CURDIR/revanced-patcher/build/libs/revanced-patcher-$PATCHERVER.jar)
+    PATCHES=$(ls $CURDIR/revanced-patches/build/libs/revanced-patches-$PATCHESVER.jar)
+    INTEG=$(ls $CURDIR/revanced-integrations/app/build/outputs/apk/release/app-release-unsigned.apk)
+    CLI=$(ls $CURDIR/revanced-cli/build/libs/revanced-cli-$CLIVER-all.jar)
 }
 
 # Generate message
 generate_message() {
-    echo "**RevancedYT-$DATE-$N**" > $CURDIR/changelog.md
-    echo "" >> $CURDIR/changelog.md
-    echo "**Tools:**" >> $CURDIR/changelog.md
-    echo "revanced-patcher: $PATCHERVER" >> $CURDIR/changelog.md
-    echo "revanced-patches: $PATCHESVER" >> $CURDIR/changelog.md
-    echo "revanced-integrations: $INTEGRATIONSVER" >> $CURDIR/changelog.md
-    echo "revanced-cli: $CLIVER" >> $CURDIR/changelog.md
-    echo "" >> $CURDIR/changelog.md
-    echo "$(cat $CURDIR/message)" >> $CURDIR/changelog.md
+    echo "**RevancedYT-$DATE-$N**" >$CURDIR/changelog.md
+    echo "" >>$CURDIR/changelog.md
+    echo "**Tools:**" >>$CURDIR/changelog.md
+    echo "revanced-patcher: $PATCHERVER" >>$CURDIR/changelog.md
+    echo "revanced-patches: $PATCHESVER" >>$CURDIR/changelog.md
+    echo "revanced-integrations: $INTEGRATIONSVER" >>$CURDIR/changelog.md
+    echo "revanced-cli: $CLIVER" >>$CURDIR/changelog.md
+    echo "" >>$CURDIR/changelog.md
+    echo "$(cat $CURDIR/message)" >>$CURDIR/changelog.md
     sed -i 's/$/\\/g' ${CURDIR}/changelog.md
     MSG=$(sed 's/$/n/g' ${CURDIR}/changelog.md)
 }
 
 generate_release_data() {
-cat <<EOF
+    cat <<EOF
 {
 "tag_name":"${DATE}_v${1}",
 "target_commitish":"master",
@@ -120,7 +120,7 @@ upload_release_file() {
         --data-binary @${1} \
         ${upload_url}?name=$(basename ${1})"
 
-    http_code=`eval $command`
+    http_code=$(eval $command)
     if [ $http_code == "201" ]; then
         echo "asset $(basename ${1}) uploaded"
     else
@@ -159,23 +159,23 @@ build_tools
 
 # Create Release
 if [[ $GITHUB_TOKEN ]]; then
-for N in {1..9}; do
-    YTNAME=RevancedYT_${YTVERSION}_${DATE}_v${N}
-    YTMNAME=RevancedYTMusic_${YTMVERSION}_${DATE}_v${N}
-    generate_message
-    YTVERSIONCODE=${DATE}${N}
-    YTMVERSIONCODE=${DATE}${N}
-    create_release $N
-    upload_url=`eval $command`
-    echo $upload_url
-    if (grep 'https' <<< $upload_url); then
-        echo "created release ${YTNAME}"
-        break
-    else
-        echo "Trying Again to create release"
-        continue
-    fi
-done
+    for N in {1..9}; do
+        YTNAME=RevancedYT_${YTVERSION}_${DATE}_v${N}
+        YTMNAME=RevancedYTMusic_${YTMVERSION}_${DATE}_v${N}
+        generate_message
+        YTVERSIONCODE=${DATE}${N}
+        YTMVERSIONCODE=${DATE}${N}
+        create_release $N
+        upload_url=$(eval $command)
+        echo $upload_url
+        if (grep 'https' <<<$upload_url); then
+            echo "created release ${YTNAME}"
+            break
+        else
+            echo "Trying Again to create release"
+            continue
+        fi
+    done
 fi
 
 # Generate Message
@@ -242,10 +242,10 @@ cd $YTMMODULEPATH && zip -qr9 $CURDIR/$YTMNAME.zip *
 # Generate updateJson
 sed "/\"version\"/s/:\ .*/:\ \"$YTVERSION\",/g; \
     /\"versionCode\"/s/:\ .*/:\ $YTVERSIONCODE,/g; \
-    /\"zipUrl\"/s/REVANCEDZIP/$YTNAME/g" $CURDIR/update.json > $CURDIR/ytupdate.json
+    /\"zipUrl\"/s/REVANCEDZIP/$YTNAME/g" $CURDIR/update.json >$CURDIR/ytupdate.json
 sed "/\"version\"/s/:\ .*/:\ \"$YTMVERSION\",/g; \
     /\"versionCode\"/s/:\ .*/:\ $YTMVERSIONCODE,/g; \
-    /\"zipUrl\"/s/REVANCEDZIP/$YTMNAME/g" $CURDIR/update.json > $CURDIR/ytmupdate.json
+    /\"zipUrl\"/s/REVANCEDZIP/$YTMNAME/g" $CURDIR/update.json >$CURDIR/ytmupdate.json
 
 # Upload Github Release
 echo $upload_url
