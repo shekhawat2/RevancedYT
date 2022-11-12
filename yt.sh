@@ -178,9 +178,6 @@ if [[ $GITHUB_TOKEN ]]; then
     done
 fi
 
-# Generate Message
-generate_message
-
 # Patch Apk
 java -jar $CLI \
     -a $YTMODULEPATH/youtube/base.apk \
