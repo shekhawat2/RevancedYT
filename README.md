@@ -2,7 +2,8 @@
 
 YouTube + YouTube Music
 
-Script Runs on Monday and Friday at 07:00AM(IST).\
+Official supported version (Release) script runs on Sunday at 05:30AM(IST).\
+Experimental latest version (Pre-release) script runs on Monday and Friday at 07:00AM(IST).\
 The script will fetch the latest version available.
 
 ReVanced Tools compiled from their latest source.\
