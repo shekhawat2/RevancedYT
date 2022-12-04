@@ -7,7 +7,9 @@ YTMMODULEPATH=$CURDIR/RevancedYTM
 DATE=$(date +%y%m%d)
 BSDIFF=$CURDIR/bin/bsdiff
 DRAFT=false
+IS_PRERELEASE=true
 if [ x${1} == xtest ]; then DRAFT=true; fi
+if [ x${1} == xofficial ]; then IS_PRERELEASE=false; fi
 
 clone() {
     echo "Cleaning and Cloning $1"
@@ -97,7 +99,7 @@ generate_release_data() {
 "name":"RevancedYT-${DATE}-v${1}",
 "body":"$MSG",
 "draft":${DRAFT},
-"prerelease":false,
+"prerelease":${IS_PRERELEASE},
 "generate_release_notes":false
 }
 EOF
@@ -133,8 +135,16 @@ upload_release_file() {
 get_latestytversion
 get_latestytmversion
 
-# TEMP
-YTVERSION=17.45.36
+# Fetch latest official supported YT versions
+if [ $IS_PRERELEASE = false ]; then
+    curl -X 'GET' \
+      'https://releases.rvcd.win/patches' \
+      -H 'accept: application/json' \
+      -o revanced-patches.json
+    YTVERSION=$(jq -r '.[] | select(.name == "video-ads") | .compatiblePackages[] | select(.name == "com.google.android.youtube") | .versions[-1]' revanced-patches.json)
+    YTMVERSION=$(jq -r '.[] | select(.name == "music-video-ads") | .compatiblePackages[] | select(.name == "com.google.android.apps.youtube.music") | .versions[-1]' revanced-patches.json)
+    rm -rf revanced-patches.json
+fi
 
 # Clone Tools
 clone_tools
