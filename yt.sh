@@ -138,11 +138,10 @@ get_latestytmversion
 # Fetch latest official supported YT versions
 if [ $IS_PRERELEASE = false ]; then
     curl -X 'GET' \
-      'https://releases.rvcd.win/patches' \
-      -H 'accept: application/json' \
-      -o revanced-patches.json
+        'https://releases.rvcd.win/patches' \
+        -H 'accept: application/json' \
+        -o revanced-patches.json
     YTVERSION=$(jq -r '.[] | select(.name == "video-ads") | .compatiblePackages[] | select(.name == "com.google.android.youtube") | .versions[-1]' revanced-patches.json)
-    YTMVERSION=$(jq -r '.[] | select(.name == "music-video-ads") | .compatiblePackages[] | select(.name == "com.google.android.apps.youtube.music") | .versions[-1]' revanced-patches.json)
     rm -rf revanced-patches.json
 fi
 
