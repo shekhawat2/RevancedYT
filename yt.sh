@@ -179,7 +179,6 @@ if [[ $GITHUB_TOKEN ]]; then
         YTMVERSIONCODE=${DATE}${N}
         create_release $N
         upload_url=$(eval $command)
-        echo $upload_url
         if (grep 'https' <<<$upload_url); then
             echo "created release ${YTNAME}"
             break
