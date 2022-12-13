@@ -1,8 +1,16 @@
 PACKAGE_NAME=com.google.android.youtube
 
-# Unmount Old ReVanced
-stock_path=$( pm path $PACKAGE_NAME | grep base | sed 's/package://g' )
-if [[ '$stock_path' ]] ; then umount -l $stock_path; fi
+if [ "$BOOTMODE" != "true" ]; then
+    abort "! Recovery install is not supported"
+fi
+
+MAGISKTMP="$(magisk --path)" || MAGISKTMP=/sbin
+
+if [ ! -d "$MAGISKTMP/.magisk/modules/magisk_proc_monitor" ]; then
+    ui_print "! Please install Magisk Process monitor tool v1.1+"
+    ui_print "  https://github.com/HuskyDG/magisk_proc_monitor"
+    abort
+fi
 
 # Install Youtube
 ui_print "Installing Stock Youtube..."
@@ -19,10 +27,3 @@ BSPATCH=$MODPATH/tools/bspatch
 chmod +x $BSPATCH
 $BSPATCH $MODPATH/youtube/base.apk $MODPATH/revanced.apk $MODPATH/diff.patch
 rm -rf $MODPATH/youtube $MODPATH/tools $MODPATH/diff.patch
-
-# Mount for Now
-base_path=$MODPATH/revanced.apk
-stock_path=$( pm path $PACKAGE_NAME | grep base | sed 's/package://g' )
-chcon u:object_r:apk_data_file:s0 $base_path
-mount -o bind $base_path $stock_path
-am force-stop $PACKAGE_NAME
