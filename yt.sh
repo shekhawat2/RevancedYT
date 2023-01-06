@@ -72,7 +72,7 @@ build_tools() {
     cd $CURDIR/revanced-cli && sh gradlew build >/dev/null
     PATCHER=$(ls $CURDIR/revanced-patcher/build/libs/revanced-patcher-$PATCHERVER.jar)
     PATCHES=$(ls $CURDIR/revanced-patches/build/libs/revanced-patches-$PATCHESVER.jar)
-    INTEG=$(ls $CURDIR/revanced-integrations/app/build/outputs/apk/release/app-release-unsigned.apk)
+    INTEG=$(ls $CURDIR/revanced-integrations/app/build/outputs/apk/release/revanced-integrations-$INTEGRATIONSVER.apk)
     CLI=$(ls $CURDIR/revanced-cli/build/libs/revanced-cli-$CLIVER-all.jar)
 }
 
