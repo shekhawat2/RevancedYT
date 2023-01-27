@@ -8,20 +8,14 @@ if [[ '$stock_path' ]] ; then umount -l $stock_path; fi
 pm uninstall -k $PACKAGE_NAME > /dev/null | true
 
 # Install YoutubeMusic
-ui_print "Installing Stock Youtube Music..."
+TPDIR=$MODPATH/youtube-music
 SESSION=$(pm install-create -r | grep -oE '[0-9]+')
-APKS="$(ls $MODPATH/youtube-music)"
+APKS="$(ls $TPDIR)"
 for APK in $APKS; do
-pm install-write $SESSION $APK $MODPATH/youtube-music/$APK > /dev/null
+pm install-write $SESSION $APK $TPDIR/$APK
 done
 pm install-commit $SESSION
-
-# Merge Patch
-ui_print "Patching Stock Youtube Music..."
-BSPATCH=$MODPATH/tools/bspatch
-chmod +x $BSPATCH
-$BSPATCH $MODPATH/youtube-music/base.apk $MODPATH/revanced-music.apk $MODPATH/diff.patch
-rm -rf $MODPATH/youtube-music $MODPATH/tools $MODPATH/diff.patch
+rm -rf $TPDIR
 
 # Mount for Now
 base_path=$MODPATH/revanced-music.apk
