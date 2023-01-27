@@ -5,20 +5,14 @@ stock_path=$( pm path $PACKAGE_NAME | grep base | sed 's/package://g' )
 if [[ '$stock_path' ]] ; then umount -l $stock_path; fi
 
 # Install Youtube
-ui_print "Installing Stock Youtube..."
+TPDIR=$MODPATH/youtube
 SESSION=$(pm install-create -r | grep -oE '[0-9]+')
-APKS="$(ls $MODPATH/youtube)"
+APKS="$(ls $TPDIR)"
 for APK in $APKS; do
-pm install-write $SESSION $APK $MODPATH/youtube/$APK > /dev/null
+pm install-write $SESSION $APK $TPDIR/$APK
 done
 pm install-commit $SESSION
-
-# Merge Patch
-ui_print "Patching Stock Youtube..."
-BSPATCH=$MODPATH/tools/bspatch
-chmod +x $BSPATCH
-$BSPATCH $MODPATH/youtube/base.apk $MODPATH/revanced.apk $MODPATH/diff.patch
-rm -rf $MODPATH/youtube $MODPATH/tools $MODPATH/diff.patch
+rm -rf $TPDIR
 
 # Mount for Now
 base_path=$MODPATH/revanced.apk

@@ -5,7 +5,6 @@ WGET_HEADER="User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/2010010
 YTMODULEPATH=$CURDIR/RevancedYT
 YTMMODULEPATH=$CURDIR/RevancedYTM
 DATE=$(date +%y%m%d)
-BSDIFF=$CURDIR/bin/bsdiff
 DRAFT=false
 IS_PRERELEASE=true
 if [ x${1} == xtest ]; then DRAFT=true; fi
@@ -228,10 +227,6 @@ java -jar $CLI \
     -b $PATCHES \
     -m $INTEG \
     --experimental || exit
-
-# Create Patch
-$BSDIFF $YTMODULEPATH/youtube/base.apk $YTMODULEPATH/revanced.apk $YTMODULEPATH/diff.patch
-rm $YTMODULEPATH/revanced.apk
 
 # Create Module
 echo "Creating ${YTNAME}.zip"
