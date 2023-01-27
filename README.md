@@ -7,6 +7,4 @@ The script will fetch the latest supported version.
 
 ReVanced Tools compiled from their latest source.
 
-Some Apps(Yono SBI) May detect root version.
-
 All Credits to **ReVancedTeam** for starting this project.
