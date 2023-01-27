@@ -205,7 +205,6 @@ java -jar $CLI \
     -m $INTEG \
     --experimental \
     -e music-microg-support || exit
-zip -d $YTMMODULEPATH/revanced-music.apk lib/*
 
 # NoRoot
 java -jar $CLI \
