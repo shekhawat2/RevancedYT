@@ -199,6 +199,7 @@ java -jar $CLI \
     -e microg-support \
     -e hide-autoplay-button \
     -e custom-branding || exit
+zip -d $YTMODULEPATH/revanced.apk lib/*
 
 java -jar $CLI \
     -a $YTMMODULEPATH/youtube-music/base.apk \
@@ -208,6 +209,7 @@ java -jar $CLI \
     -m $INTEG \
     --experimental \
     -e music-microg-support || exit
+zip -d $YTMMODULEPATH/revanced-music.apk lib/*
 
 # NoRoot
 java -jar $CLI \
