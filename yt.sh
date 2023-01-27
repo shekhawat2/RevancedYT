@@ -206,7 +206,19 @@ java -jar $CLI \
     --experimental \
     -e music-microg-support || exit
 
+# Create Module
+echo "Creating ${YTNAME}.zip"
+sed -i "/version=/s/=.*/=$YTVERSION/g" $YTMODULEPATH/module.prop
+sed -i "/versionCode=/s/=.*/=$YTVERSIONCODE/g" $YTMODULEPATH/module.prop
+cd $YTMODULEPATH && zip -qr9 $CURDIR/$YTNAME.zip *
+
+echo "Creating ${YTMNAME}.zip"
+sed -i "/version=/s/=.*/=$YTMVERSION/g" $YTMMODULEPATH/module.prop
+sed -i "/versionCode=/s/=.*/=$YTMVERSIONCODE/g" $YTMMODULEPATH/module.prop
+cd $YTMMODULEPATH && zip -qr9 $CURDIR/$YTMNAME.zip *
+
 # NoRoot
+zip -d $YTMODULEPATH/youtube/base.apk lib/x86/* lib/x86_64/*
 java -jar $CLI \
     -a $YTMODULEPATH/youtube/base.apk \
     -o $CURDIR/${YTNAME}-noroot.apk \
@@ -224,17 +236,6 @@ java -jar $CLI \
     -b $PATCHES \
     -m $INTEG \
     --experimental || exit
-
-# Create Module
-echo "Creating ${YTNAME}.zip"
-sed -i "/version=/s/=.*/=$YTVERSION/g" $YTMODULEPATH/module.prop
-sed -i "/versionCode=/s/=.*/=$YTVERSIONCODE/g" $YTMODULEPATH/module.prop
-cd $YTMODULEPATH && zip -qr9 $CURDIR/$YTNAME.zip *
-
-echo "Creating ${YTMNAME}.zip"
-sed -i "/version=/s/=.*/=$YTMVERSION/g" $YTMMODULEPATH/module.prop
-sed -i "/versionCode=/s/=.*/=$YTMVERSIONCODE/g" $YTMMODULEPATH/module.prop
-cd $YTMMODULEPATH && zip -qr9 $CURDIR/$YTMNAME.zip *
 
 # Generate updateJson
 sed "/\"version\"/s/:\ .*/:\ \"$YTVERSION\",/g; \
