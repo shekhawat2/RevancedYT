@@ -134,7 +134,7 @@ get_latestytmversion
 
 # Fetch latest official supported YT versions
 curl -X 'GET' \
-    'https://releases.rvcd.win/patches' \
+    'https://releases.revanced.app/patches' \
     -H 'accept: application/json' \
     -o revanced-patches.json
 YTVERSION=$(jq -r '.[] | select(.name == "video-ads") | .compatiblePackages[] | select(.name == "com.google.android.youtube") | .versions[-1]' revanced-patches.json)
