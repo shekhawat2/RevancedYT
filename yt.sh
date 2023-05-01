@@ -192,7 +192,7 @@ java -jar $CLI \
     -b $PATCHES \
     -m $INTEG \
     --experimental \
-    -e microg-support \
+    -e vanced-microg-support \
     -e custom-branding || exit
 zip -d $YTMODULEPATH/revanced.apk lib/*
 
