@@ -203,7 +203,7 @@ java -jar $CLI \
     -b $PATCHES \
     -m $INTEG \
     --experimental \
-    -e music-microg-support || exit
+    -e vanced-microg-support || exit
 
 # Create Module
 echo "Creating ${YTNAME}.zip"
