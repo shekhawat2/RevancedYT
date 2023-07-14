@@ -137,7 +137,7 @@ curl -X 'GET' \
     'https://releases.revanced.app/patches' \
     -H 'accept: application/json' \
     -o revanced-patches.json
-YTVERSION=$(jq -r '.[] | select(.name == "video-ads") | .compatiblePackages[] | select(.name == "com.google.android.youtube") | .versions[-1]' revanced-patches.json)
+YTVERSION=$(jq -r '.[] | select(.name == "Video ads") | .compatiblePackages[] | select(.name == "com.google.android.youtube") | .versions[-1]' revanced-patches.json)
 rm -rf revanced-patches.json
 
 # Clone Tools
