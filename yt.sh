@@ -185,25 +185,25 @@ if [[ $GITHUB_TOKEN ]]; then
 fi
 
 # Patch Apk
-java -jar $CLI \
-    -a $YTMODULEPATH/youtube/base.apk \
+java -jar $CLI patch \
     -o $YTMODULEPATH/revanced.apk \
     --keystore=$CURDIR/revanced.keystore \
     -b $PATCHES \
     -m $INTEG \
-    --experimental \
+    --force \
     -e vanced-microg-support \
-    -e custom-branding || exit
+    -e custom-branding \
+    $YTMODULEPATH/youtube/base.apk || exit
 zip -d $YTMODULEPATH/revanced.apk lib/*
 
-java -jar $CLI \
-    -a $YTMMODULEPATH/youtube-music/base.apk \
+java -jar $CLI patch \
     -o $YTMMODULEPATH/revanced-music.apk \
     --keystore=$CURDIR/revanced.keystore \
     -b $PATCHES \
     -m $INTEG \
-    --experimental \
-    -e vanced-microg-support || exit
+    --force \
+    -e vanced-microg-support \
+    $YTMMODULEPATH/youtube-music/base.apk || exit
 
 # Create Module
 echo "Creating ${YTNAME}.zip"
@@ -218,22 +218,22 @@ cd $YTMMODULEPATH && zip -qr9 $CURDIR/$YTMNAME.zip *
 
 # NoRoot
 zip -d $YTMODULEPATH/youtube/base.apk lib/x86/* lib/x86_64/*
-java -jar $CLI \
-    -a $YTMODULEPATH/youtube/base.apk \
+java -jar $CLI patch \
     -o $CURDIR/${YTNAME}-noroot.apk \
     --keystore=$CURDIR/revanced.keystore \
     -b $PATCHES \
     -m $INTEG \
-    --experimental \
-    -e custom-branding || exit
+    --force \
+    -e custom-branding \
+    $YTMODULEPATH/youtube/base.apk || exit
 
-java -jar $CLI \
-    -a $YTMMODULEPATH/youtube-music/base.apk \
+java -jar $CLI patch \
     -o $CURDIR/${YTMNAME}-noroot.apk \
     --keystore=$CURDIR/revanced.keystore \
     -b $PATCHES \
     -m $INTEG \
-    --experimental || exit
+    --force \
+    $YTMMODULEPATH/youtube-music/base.apk || exit
 
 # Generate updateJson
 sed "/\"version\"/s/:\ .*/:\ \"$YTVERSION\",/g; \
