@@ -141,7 +141,7 @@ YTVERSION=$(jq -r '.[] | select(.name == "Video ads") | .compatiblePackages[] | 
 rm -rf revanced-patches.json
 
 # Use specific YTM version for now
-YTMVERSION=6.10.53
+YTMVERSION=6.10.52
 
 # Clone Tools
 clone_tools
