@@ -140,9 +140,6 @@ curl -X 'GET' \
 YTVERSION=$(jq -r '.[] | select(.name == "Video ads") | .compatiblePackages[] | select(.name == "com.google.android.youtube") | .versions[-1]' revanced-patches.json)
 rm -rf revanced-patches.json
 
-# Use specific YTM version for now
-YTMVERSION=6.10.52
-
 # Clone Tools
 clone_tools
 
