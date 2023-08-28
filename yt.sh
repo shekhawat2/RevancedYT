@@ -138,10 +138,10 @@ get_latestytmversion
 
 # Fetch latest official supported YT versions
 curl -X 'GET' \
-    'https://releases.revanced.app/patches' \
+    'https://api.revanced.app/v2/patches/latest' \
     -H 'accept: application/json' \
     -o revanced-patches.json
-YTVERSION=$(jq -r '.[] | select(.name == "Video ads") | .compatiblePackages[] | select(.name == "com.google.android.youtube") | .versions[-1]' revanced-patches.json)
+YTVERSION=$(jq -r '.patches[] | select(.name == "Video ads") | .compatiblePackages[] | select(.name == "com.google.android.youtube") | .versions[-1]' revanced-patches.json)
 rm -rf revanced-patches.json
 
 # Clone Tools
