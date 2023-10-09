@@ -192,6 +192,7 @@ fi
 java -jar $CLI patch \
     -o $YTMODULEPATH/revanced.apk \
     --keystore=$CURDIR/revanced.keystore \
+    --keystore-password=$KEYSTORE_PASSWORD \
     -b $PATCHES \
     -m $INTEG \
     --force \
@@ -203,6 +204,7 @@ zip -d $YTMODULEPATH/revanced.apk lib/*
 java -jar $CLI patch \
     -o $YTMMODULEPATH/revanced-music.apk \
     --keystore=$CURDIR/revanced.keystore \
+    --keystore-password=$KEYSTORE_PASSWORD \
     -b $PATCHES \
     -m $INTEG \
     --force \
@@ -225,6 +227,7 @@ zip -d $YTMODULEPATH/youtube/base.apk lib/x86/* lib/x86_64/*
 java -jar $CLI patch \
     -o $CURDIR/${YTNAME}-noroot.apk \
     --keystore=$CURDIR/revanced.keystore \
+    --keystore-password=$KEYSTORE_PASSWORD \
     -b $PATCHES \
     -m $INTEG \
     --force \
@@ -234,6 +237,7 @@ java -jar $CLI patch \
 java -jar $CLI patch \
     -o $CURDIR/${YTMNAME}-noroot.apk \
     --keystore=$CURDIR/revanced.keystore \
+    --keystore-password=$KEYSTORE_PASSWORD \
     -b $PATCHES \
     -m $INTEG \
     --force \

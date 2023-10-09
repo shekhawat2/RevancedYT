@@ -28,5 +28,6 @@ jobs:
       - name: Start building
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
           ./yt.sh test
