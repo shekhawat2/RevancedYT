@@ -148,8 +148,8 @@ rm -rf revanced-patches.json
 clone_tools
 
 # Cleanup
-find $CURDIR -type f -name *.apk -exec rm -rf {} \;
-find $CURDIR -type f -name *.zip -exec rm -rf {} \;
+find $CURDIR -type f -name "*.apk" -exec rm -rf {} \;
+find $CURDIR -type f -name "*.zip" -exec rm -rf {} \;
 rm -rf $YTMODULEPATH/youtube && mkdir -p $YTMODULEPATH/youtube
 rm -rf $YTMMODULEPATH/youtube-music && mkdir -p $YTMMODULEPATH/youtube-music
 
