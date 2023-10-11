@@ -197,7 +197,7 @@ java -jar $CLI patch \
     -b $PATCHES \
     -m $INTEG \
     --force \
-    -e vanced-microg-support \
+    -e "Vanced MicroG support" \
     -e custom-branding \
     $YTMODULEPATH/youtube/base.apk || exit
 zip -d $YTMODULEPATH/revanced.apk lib/*
@@ -210,7 +210,7 @@ java -jar $CLI patch \
     -b $PATCHES \
     -m $INTEG \
     --force \
-    -e vanced-microg-support \
+    -e "Vanced MicroG support" \
     $YTMMODULEPATH/youtube-music/base.apk || exit
 
 # Create Module
@@ -234,7 +234,7 @@ java -jar $CLI patch \
     -b $PATCHES \
     -m $INTEG \
     --force \
-    -e custom-branding \
+    -e "Custom branding" \
     $YTMODULEPATH/youtube/base.apk || exit
 
 java -jar $CLI patch \
