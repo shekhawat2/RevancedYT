@@ -197,7 +197,7 @@ java -jar $CLI patch \
     -b $PATCHES \
     -m $INTEG \
     --force \
-    -e "Vanced MicroG support" \
+    -e "GmsCore support" \
     -e custom-branding \
     $YTMODULEPATH/youtube/base.apk || exit
 zip -d $YTMODULEPATH/revanced.apk lib/*
@@ -210,7 +210,7 @@ java -jar $CLI patch \
     -b $PATCHES \
     -m $INTEG \
     --force \
-    -e "Vanced MicroG support" \
+    -e "GmsCore support" \
     $YTMMODULEPATH/youtube-music/base.apk || exit
 
 # Create Module
