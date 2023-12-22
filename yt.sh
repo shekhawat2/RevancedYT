@@ -217,12 +217,12 @@ java -jar $CLI patch \
 echo "Creating ${YTNAME}.zip"
 sed -i "/version=/s/=.*/=$YTVERSION/g" $YTMODULEPATH/module.prop
 sed -i "/versionCode=/s/=.*/=$YTVERSIONCODE/g" $YTMODULEPATH/module.prop
-cd $YTMODULEPATH && zip -qr9 $CURDIR/$YTNAME.zip *
+cd $YTMODULEPATH && zip -qr9 $CURDIR/$YTNAME.zip META-INF module.prop customize.sh service.sh youtube revanced.apk
 
 echo "Creating ${YTMNAME}.zip"
 sed -i "/version=/s/=.*/=$YTMVERSION/g" $YTMMODULEPATH/module.prop
 sed -i "/versionCode=/s/=.*/=$YTMVERSIONCODE/g" $YTMMODULEPATH/module.prop
-cd $YTMMODULEPATH && zip -qr9 $CURDIR/$YTMNAME.zip *
+cd $YTMMODULEPATH && zip -qr9 $CURDIR/$YTMNAME.zip META-INF module.prop customize.sh service.sh youtube-music revanced-music.apk
 
 # NoRoot
 zip -d $YTMODULEPATH/youtube/base.apk lib/x86/* lib/x86_64/*
