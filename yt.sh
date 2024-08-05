@@ -193,7 +193,7 @@ java -jar $CLI patch \
     -o $YTMODULEPATH/revanced.apk \
     --keystore=$CURDIR/revanced.keystore \
     --keystore-password=$KEYSTORE_PASSWORD \
-    --alias=shekhawat2 \
+    --keystore-entry-alias=shekhawat2 \
     -b $PATCHES \
     -m $INTEG \
     --force \
@@ -206,7 +206,7 @@ java -jar $CLI patch \
     -o $YTMMODULEPATH/revanced-music.apk \
     --keystore=$CURDIR/revanced.keystore \
     --keystore-password=$KEYSTORE_PASSWORD \
-    --alias=shekhawat2 \
+    --keystore-entry-alias=shekhawat2 \
     -b $PATCHES \
     -m $INTEG \
     --force \
@@ -230,7 +230,7 @@ java -jar $CLI patch \
     -o $CURDIR/${YTNAME}-noroot.apk \
     --keystore=$CURDIR/revanced.keystore \
     --keystore-password=$KEYSTORE_PASSWORD \
-    --alias=shekhawat2 \
+    --keystore-entry-alias=shekhawat2 \
     -b $PATCHES \
     -m $INTEG \
     --force \
@@ -241,7 +241,7 @@ java -jar $CLI patch \
     -o $CURDIR/${YTMNAME}-noroot.apk \
     --keystore=$CURDIR/revanced.keystore \
     --keystore-password=$KEYSTORE_PASSWORD \
-    --alias=shekhawat2 \
+    --keystore-entry-alias=shekhawat2 \
     -b $PATCHES \
     -m $INTEG \
     --force \
