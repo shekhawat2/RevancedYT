@@ -66,6 +66,19 @@ clone_tools() {
     CLIVER=$(grep version $CURDIR/revanced-cli/gradle.properties | tr -dc .0-9)
 }
 
+patch_tools() {
+echo "Patching Tools"
+PATCHFILE=$CURDIR/revanced-integrations/app/src/main/java/app/revanced/integrations/shared/checks/CheckEnvironmentPatch.java
+FIND_START="    public static void check(Activity context) {"
+FIND_END="    }"
+oldStr=`sed -n "/$FIND_START/,/^$FIND_END/p" $PATCHFILE`
+newStr="    public static void check(Activity context) {
+        Check.disableForever();
+        return;
+    }"
+$CURDIR/repstr.py "$PATCHFILE" "$oldStr" "$newStr"
+}
+
 build_tools() {
     cd $CURDIR/revanced-patcher && sh gradlew build >/dev/null
     cd $CURDIR/revanced-patches && sh gradlew build >/dev/null
@@ -146,6 +159,9 @@ rm -rf revanced-patches.json
 
 # Clone Tools
 clone_tools
+
+# Patch Tools
+patch_tools
 
 # Cleanup
 find $CURDIR -type f -name "*.apk" -exec rm -rf {} \;
