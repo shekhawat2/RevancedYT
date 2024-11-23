@@ -59,10 +59,8 @@ clone_tools() {
     clone revanced-patcher main revanced-patcher
     clone revanced-patches main revanced-patches
     clone revanced-cli main revanced-cli
-    clone revanced-integrations main revanced-integrations
     PATCHERVER=$(grep version $CURDIR/revanced-patcher/gradle.properties | tr -dc .0-9)
     PATCHESVER=$(grep version $CURDIR/revanced-patches/gradle.properties | tr -dc .0-9)
-    INTEGRATIONSVER=$(grep version $CURDIR/revanced-integrations/gradle.properties | tr -dc .0-9)
     CLIVER=$(grep version $CURDIR/revanced-cli/gradle.properties | tr -dc .0-9)
 }
 
@@ -81,13 +79,14 @@ $CURDIR/repstr.py "$PATCHFILE" "$oldStr" "$newStr"
 
 build_tools() {
     cd $CURDIR/revanced-patcher && sh gradlew build >/dev/null
-    cd $CURDIR/revanced-patches && sh gradlew build >/dev/null
-    cd $CURDIR/revanced-integrations && sh gradlew build >/dev/null
-    cd $CURDIR/revanced-cli && sh gradlew build >/dev/null
+    cd $CURDIR/revanced-patches && sh gradlew build
+    cd $CURDIR/revanced-cli && sh gradlew build
     PATCHER=$(ls $CURDIR/revanced-patcher/build/libs/revanced-patcher-$PATCHERVER.jar)
-    PATCHES=$(ls $CURDIR/revanced-patches/build/libs/revanced-patches-$PATCHESVER.jar)
-    INTEG=$(ls $CURDIR/revanced-integrations/app/build/outputs/apk/release/revanced-integrations-$INTEGRATIONSVER.apk)
+    PATCHES=$(ls $CURDIR/revanced-patches/patches/build/libs/patches-$PATCHESVER.rvp)
     CLI=$(ls $CURDIR/revanced-cli/build/libs/revanced-cli-$CLIVER-all.jar)
+    echo "$PATCHER"
+    echo "$PATCHES"
+    echo "$CLI"
 }
 
 # Generate message
@@ -97,7 +96,6 @@ generate_message() {
     echo "**Tools:**" >>$CURDIR/changelog.md
     echo "revanced-patcher: $PATCHERVER" >>$CURDIR/changelog.md
     echo "revanced-patches: $PATCHESVER" >>$CURDIR/changelog.md
-    echo "revanced-integrations: $INTEGRATIONSVER" >>$CURDIR/changelog.md
     echo "revanced-cli: $CLIVER" >>$CURDIR/changelog.md
     echo "" >>$CURDIR/changelog.md
     echo "$(cat $CURDIR/message)" >>$CURDIR/changelog.md
@@ -161,7 +159,7 @@ rm -rf revanced-patches.json
 clone_tools
 
 # Patch Tools
-patch_tools
+# patch_tools
 
 # Cleanup
 find $CURDIR -type f -name "*.apk" -exec rm -rf {} \;
@@ -210,8 +208,7 @@ java -jar $CLI patch \
     --keystore=$CURDIR/revanced.keystore \
     --keystore-password=$KEYSTORE_PASSWORD \
     --keystore-entry-alias=shekhawat2 \
-    -b $PATCHES \
-    -m $INTEG \
+    -p $PATCHES \
     --force \
     -e "GmsCore support" \
     -e custom-branding \
@@ -223,8 +220,7 @@ java -jar $CLI patch \
     --keystore=$CURDIR/revanced.keystore \
     --keystore-password=$KEYSTORE_PASSWORD \
     --keystore-entry-alias=shekhawat2 \
-    -b $PATCHES \
-    -m $INTEG \
+    -p $PATCHES \
     --force \
     -e "GmsCore support" \
     $YTMMODULEPATH/youtube-music/base.apk || exit
@@ -247,8 +243,7 @@ java -jar $CLI patch \
     --keystore=$CURDIR/revanced.keystore \
     --keystore-password=$KEYSTORE_PASSWORD \
     --keystore-entry-alias=shekhawat2 \
-    -b $PATCHES \
-    -m $INTEG \
+    -p $PATCHES \
     --force \
     -e "Custom branding" \
     $YTMODULEPATH/youtube/base.apk || exit
@@ -258,8 +253,7 @@ java -jar $CLI patch \
     --keystore=$CURDIR/revanced.keystore \
     --keystore-password=$KEYSTORE_PASSWORD \
     --keystore-entry-alias=shekhawat2 \
-    -b $PATCHES \
-    -m $INTEG \
+    -p $PATCHES \
     --force \
     $YTMMODULEPATH/youtube-music/base.apk || exit
 
