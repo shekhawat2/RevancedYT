@@ -56,19 +56,15 @@ dl_ytm() {
 }
 
 clone_tools() {
-    clone revanced-patcher main revanced-patcher
     clone revanced-patches main revanced-patches
     clone revanced-cli main revanced-cli
-    clone revanced-integrations main revanced-integrations
-    PATCHERVER=$(grep version $CURDIR/revanced-patcher/gradle.properties | tr -dc .0-9)
     PATCHESVER=$(grep version $CURDIR/revanced-patches/gradle.properties | tr -dc .0-9)
-    INTEGRATIONSVER=$(grep version $CURDIR/revanced-integrations/gradle.properties | tr -dc .0-9)
     CLIVER=$(grep version $CURDIR/revanced-cli/gradle.properties | tr -dc .0-9)
 }
 
 patch_tools() {
 echo "Patching Tools"
-PATCHFILE=$CURDIR/revanced-integrations/app/src/main/java/app/revanced/integrations/shared/checks/CheckEnvironmentPatch.java
+PATCHFILE=$CURDIR/revanced-patches/extensions/shared/library/src/main/java/app/revanced/extension/shared/checks/CheckEnvironmentPatch.java
 FIND_START="    public static void check(Activity context) {"
 FIND_END="    }"
 oldStr=`sed -n "/$FIND_START/,/^$FIND_END/p" $PATCHFILE`
@@ -80,14 +76,12 @@ $CURDIR/repstr.py "$PATCHFILE" "$oldStr" "$newStr"
 }
 
 build_tools() {
-    cd $CURDIR/revanced-patcher && sh gradlew build >/dev/null
     cd $CURDIR/revanced-patches && sh gradlew build >/dev/null
-    cd $CURDIR/revanced-integrations && sh gradlew build >/dev/null
     cd $CURDIR/revanced-cli && sh gradlew build >/dev/null
-    PATCHER=$(ls $CURDIR/revanced-patcher/build/libs/revanced-patcher-$PATCHERVER.jar)
-    PATCHES=$(ls $CURDIR/revanced-patches/build/libs/revanced-patches-$PATCHESVER.jar)
-    INTEG=$(ls $CURDIR/revanced-integrations/app/build/outputs/apk/release/revanced-integrations-$INTEGRATIONSVER.apk)
+    PATCHES=$(ls $CURDIR/revanced-patches/patches/build/libs/patches-$PATCHESVER.rvp)
     CLI=$(ls $CURDIR/revanced-cli/build/libs/revanced-cli-$CLIVER-all.jar)
+    echo "$PATCHES"
+    echo "$CLI"
 }
 
 # Generate message
@@ -95,9 +89,7 @@ generate_message() {
     echo "**RevancedYT-$DATE-$N**" >$CURDIR/changelog.md
     echo "" >>$CURDIR/changelog.md
     echo "**Tools:**" >>$CURDIR/changelog.md
-    echo "revanced-patcher: $PATCHERVER" >>$CURDIR/changelog.md
     echo "revanced-patches: $PATCHESVER" >>$CURDIR/changelog.md
-    echo "revanced-integrations: $INTEGRATIONSVER" >>$CURDIR/changelog.md
     echo "revanced-cli: $CLIVER" >>$CURDIR/changelog.md
     echo "" >>$CURDIR/changelog.md
     echo "$(cat $CURDIR/message)" >>$CURDIR/changelog.md
@@ -149,25 +141,24 @@ upload_release_file() {
 get_latestytversion
 get_latestytmversion
 
-# Fetch latest official supported YT versions
-curl -X 'GET' \
-    'https://api.revanced.app/v2/patches/latest' \
-    -H 'accept: application/json' \
-    -o revanced-patches.json
-YTVERSION=$(jq -r '.patches[] | select(.name == "Video ads") | .compatiblePackages[] | select(.name == "com.google.android.youtube") | .versions[-1]' revanced-patches.json)
-rm -rf revanced-patches.json
-
 # Clone Tools
 clone_tools
 
 # Patch Tools
 patch_tools
 
+# Build Tools
+build_tools
+
 # Cleanup
 find $CURDIR -type f -name "*.apk" -exec rm -rf {} \;
 find $CURDIR -type f -name "*.zip" -exec rm -rf {} \;
 rm -rf $YTMODULEPATH/youtube && mkdir -p $YTMODULEPATH/youtube
 rm -rf $YTMMODULEPATH/youtube-music && mkdir -p $YTMMODULEPATH/youtube-music
+
+# Fetch latest official supported YT versions
+YTVERSION=$(java -jar $CLI list-patches -ipv -f com.google.android.youtube $PATCHES | \
+    sed -n '/Video\ ads/,/^$/p' | sed -n '/Compatible\ versions:/,/^$/p' | tail -n +2 | sort -r | head -1 | sed 's/^[ \t]*//')
 
 # Download Youtube
 dl_yt $YTVERSION $YTMODULEPATH/youtube/base.apk
@@ -180,9 +171,6 @@ if [ "$(unzip -l -q $CURDIR/$YTMVERSION.apk | grep apk)" ]; then
 else
     mv $CURDIR/$YTMVERSION.apk $YTMMODULEPATH/youtube-music/base.apk
 fi
-
-# Build Tools
-build_tools
 
 # Create Release
 if [[ $GITHUB_TOKEN ]]; then
@@ -205,28 +193,25 @@ if [[ $GITHUB_TOKEN ]]; then
 fi
 
 # Patch Apk
-java -jar $CLI patch \
+java -jar $CLI patch --purge \
     -o $YTMODULEPATH/revanced.apk \
     --keystore=$CURDIR/revanced.keystore \
     --keystore-password=$KEYSTORE_PASSWORD \
     --keystore-entry-alias=shekhawat2 \
-    -b $PATCHES \
-    -m $INTEG \
+    -p $PATCHES \
     --force \
-    -e "GmsCore support" \
-    -e custom-branding \
+    -d "GmsCore support" \
     $YTMODULEPATH/youtube/base.apk || exit
 zip -d $YTMODULEPATH/revanced.apk lib/*
 
-java -jar $CLI patch \
+java -jar $CLI patch --purge \
     -o $YTMMODULEPATH/revanced-music.apk \
     --keystore=$CURDIR/revanced.keystore \
     --keystore-password=$KEYSTORE_PASSWORD \
     --keystore-entry-alias=shekhawat2 \
-    -b $PATCHES \
-    -m $INTEG \
+    -p $PATCHES \
     --force \
-    -e "GmsCore support" \
+    -d "GmsCore support" \
     $YTMMODULEPATH/youtube-music/base.apk || exit
 
 # Create Module
@@ -242,25 +227,24 @@ cd $YTMMODULEPATH && zip -qr9 $CURDIR/$YTMNAME.zip META-INF module.prop customiz
 
 # NoRoot
 zip -d $YTMODULEPATH/youtube/base.apk lib/x86/* lib/x86_64/*
-java -jar $CLI patch \
+java -jar $CLI patch --purge \
     -o $CURDIR/${YTNAME}-noroot.apk \
     --keystore=$CURDIR/revanced.keystore \
     --keystore-password=$KEYSTORE_PASSWORD \
     --keystore-entry-alias=shekhawat2 \
-    -b $PATCHES \
-    -m $INTEG \
+    -p $PATCHES \
     --force \
-    -e "Custom branding" \
+    -e "GmsCore support" \
     $YTMODULEPATH/youtube/base.apk || exit
 
-java -jar $CLI patch \
+java -jar $CLI patch --purge \
     -o $CURDIR/${YTMNAME}-noroot.apk \
     --keystore=$CURDIR/revanced.keystore \
     --keystore-password=$KEYSTORE_PASSWORD \
     --keystore-entry-alias=shekhawat2 \
-    -b $PATCHES \
-    -m $INTEG \
+    -p $PATCHES \
     --force \
+    -e "GmsCore support" \
     $YTMMODULEPATH/youtube-music/base.apk || exit
 
 # Generate updateJson
