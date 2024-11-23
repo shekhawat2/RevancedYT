@@ -80,10 +80,11 @@ $CURDIR/repstr.py "$PATCHFILE" "$oldStr" "$newStr"
 }
 
 build_tools() {
-    cd $CURDIR/revanced-patcher && sh gradlew build >/dev/null
-    cd $CURDIR/revanced-patches && sh gradlew build >/dev/null
-    cd $CURDIR/revanced-integrations && sh gradlew build >/dev/null
-    cd $CURDIR/revanced-cli && sh gradlew build >/dev/null
+    cd $CURDIR/revanced-patcher && sh gradlew build
+    cd $CURDIR/revanced-patches && sh gradlew build
+    cd $CURDIR/revanced-integrations && sh gradlew build
+    cd $CURDIR/revanced-cli && sh gradlew build
+    echo $(ls $CURDIR/revanced-patches/build/libs)
     PATCHER=$(ls $CURDIR/revanced-patcher/build/libs/revanced-patcher-$PATCHERVER.jar)
     PATCHES=$(ls $CURDIR/revanced-patches/build/libs/revanced-patches-$PATCHESVER.jar)
     INTEG=$(ls $CURDIR/revanced-integrations/app/build/outputs/apk/release/revanced-integrations-$INTEGRATIONSVER.apk)
