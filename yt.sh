@@ -47,7 +47,7 @@ dl_ytm() {
     rm -rf $2
     echo "Downloading YouTubeMusic $1"
     url="https://www.apkmirror.com/apk/google-inc/youtube/youtube-music-${1//./-}-release/"
-    url="$url$(req "$url" - | grep arm64 -A30 | grep youtube-music | head -1 | sed "s#.*-release/##g;s#/\".*##g")"
+    url="$url$(req "$url" - | grep arm64 -A30 | grep '>APK<' -A20 | grep youtube-music | head -1 | sed "s#.*-release/##g;s#/\".*##g")"
     url="https://www.apkmirror.com$(req "$url" - | grep "downloadButton" | grep "forcebaseapk" | sed -n 's;.*href="\(.*key=[^"]*\)".*;\1;p')"
     url="https://www.apkmirror.com$(req "$url" - | grep "please click" | sed 's#.*href="\(.*key=[^"]*\)">.*#\1#;s#amp;##p')"
     echo "URL: $url"
