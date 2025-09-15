@@ -58,8 +58,8 @@ dl_ytm() {
 clone_tools() {
     clone revanced-patches dev revanced-patches
     clone revanced-cli main revanced-cli
-    PATCHESVER=$(grep version $CURDIR/revanced-patches/gradle.properties | tr -dc .0-9)
-    CLIVER=$(grep version $CURDIR/revanced-cli/gradle.properties | tr -dc .0-9)
+    PATCHESVER=$(grep version $CURDIR/revanced-patches/gradle.properties | cut -d = -f 2)
+    CLIVER=$(grep version $CURDIR/revanced-cli/gradle.properties | cut -d = -f 2)
 }
 
 patch_tools() {
