@@ -78,6 +78,7 @@ $CURDIR/repstr.py "$PATCHFILE" "$oldStr" "$newStr"
 build_tools() {
     cd $CURDIR/revanced-patches && sh gradlew build >/dev/null
     cd $CURDIR/revanced-cli && sh gradlew build >/dev/null
+    ls $CURDIR/revanced-patches/patches/build
     PATCHES=$(ls $CURDIR/revanced-patches/patches/build/libs/patches-$PATCHESVER.rvp)
     CLI=$(ls $CURDIR/revanced-cli/build/libs/revanced-cli-$CLIVER-all.jar)
     echo "$PATCHES"
