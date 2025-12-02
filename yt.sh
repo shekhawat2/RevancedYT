@@ -164,6 +164,7 @@ YTVERSION=$(java -jar $CLI list-patches -ipv -f com.google.android.youtube $PATC
 # Download Youtube
 dl_yt $YTVERSION $YTMODULEPATH/youtube/base.apk
 
+YTMVERSION="8.46.53"
 # Download Youtube Music
 dl_ytm $YTMVERSION $CURDIR/$YTMVERSION.apk
 if [ "$(unzip -l -q $CURDIR/$YTMVERSION.apk | grep apk)" ]; then
