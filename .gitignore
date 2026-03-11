@@ -7,3 +7,6 @@ revanced-integrations
 *.md
 *.zip
 fm
+.module-build/
+*-temporary-files
+.yt_build.log
