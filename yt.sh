@@ -10,7 +10,19 @@ YTMODULEPATH=$MODULEBUILDROOT/yt
 YTMMODULEPATH=$MODULEBUILDROOT/ytm
 DATE=$(date +%y%m%d)
 DRAFT=false
-if [ x${1} == xtest ]; then DRAFT=true; fi
+IS_TEST=false
+if [ "${1:-}" = "test" ]; then
+    DRAFT=true
+    IS_TEST=true
+fi
+
+if [ "$IS_TEST" = "true" ]; then
+    DEFAULT_SKIP_UPLOAD=true
+else
+    DEFAULT_SKIP_UPLOAD=false
+fi
+SKIP_UPLOAD=${SKIP_UPLOAD:-$DEFAULT_SKIP_UPLOAD}
+FAST_BUILD=${FAST_BUILD:-false}
 
 # Logging and cleanup functions
 log() { echo "[$(date +'%H:%M:%S')] $*" >> "$LOGFILE"; }
@@ -85,8 +97,12 @@ init_keystore_env() {
 }
 
 init_runtime_deps() {
-    local deps="git wget curl jq unzip zip file java"
+    local deps="git wget curl unzip zip file java"
     local missing=""
+
+    if [ "$SKIP_UPLOAD" != "true" ]; then
+        deps="$deps jq"
+    fi
 
     for dep in $deps; do
         if ! command -v "$dep" >/dev/null 2>&1; then
@@ -105,10 +121,16 @@ init_runtime_deps() {
 
 clone() {
     log "Cloning $1 (branch: $2) into $3"
-    rm -rf $3
     URL=https://github.com/revanced
-    git clone --depth=1 $URL/$1 -b $2 $CURDIR/$3 >> "$LOGFILE" 2>&1 || { error "Failed to clone $1"; exit 1; }
-    success "Cloned $1"
+    if [ -d "$CURDIR/$3/.git" ]; then
+        git -C "$CURDIR/$3" fetch --depth=1 origin "$2" >> "$LOGFILE" 2>&1 || { error "Failed to fetch $1"; exit 1; }
+        git -C "$CURDIR/$3" checkout -q "$2" >> "$LOGFILE" 2>&1 || { error "Failed to checkout $1:$2"; exit 1; }
+        git -C "$CURDIR/$3" reset --hard "origin/$2" >> "$LOGFILE" 2>&1 || { error "Failed to reset $1 to origin/$2"; exit 1; }
+        success "Updated $1"
+    else
+        git clone --depth=1 "$URL/$1" -b "$2" "$CURDIR/$3" >> "$LOGFILE" 2>&1 || { error "Failed to clone $1"; exit 1; }
+        success "Cloned $1"
+    fi
 }
 
 req() {
@@ -180,10 +202,15 @@ success "Tools patched successfully"
 }
 
 build_tools() {
+    local gradle_args=( -Dorg.gradle.java.home="$JAVA_HOME" build --no-daemon --parallel --build-cache )
+    if [ "$FAST_BUILD" = "true" ]; then
+        gradle_args+=( -x lint )
+    fi
+
     log "Building ReVanced Patches..."
-    cd $CURDIR/revanced-patches && ./gradlew -Dorg.gradle.java.home="$JAVA_HOME" build --no-daemon >> "$LOGFILE" 2>&1 || { error "Failed to build ReVanced Patches"; exit 1; }
+    cd $CURDIR/revanced-patches && ./gradlew "${gradle_args[@]}" >> "$LOGFILE" 2>&1 || { error "Failed to build ReVanced Patches"; exit 1; }
     log "Building ReVanced CLI..."
-    cd $CURDIR/revanced-cli && ./gradlew -Dorg.gradle.java.home="$JAVA_HOME" build --no-daemon >> "$LOGFILE" 2>&1 || { error "Failed to build ReVanced CLI"; exit 1; }
+    cd $CURDIR/revanced-cli && ./gradlew "${gradle_args[@]}" >> "$LOGFILE" 2>&1 || { error "Failed to build ReVanced CLI"; exit 1; }
     
     PATCHES=$(ls $CURDIR/revanced-patches/patches/build/libs/patches-$PATCHESVER.rvp)
     CLI=$(ls $CURDIR/revanced-cli/build/libs/revanced-cli-$CLIVER-all.jar)
@@ -327,13 +354,14 @@ EOF
 }
 
 create_release() {
-    url=https://api.github.com/repos/shekhawat2/RevancedYT/releases
-    command="curl -s \
+    local release_num=$1
+    local url=https://api.github.com/repos/shekhawat2/RevancedYT/releases
+    curl -s \
         -X POST \
         -H 'Accept: application/vnd.github+json' \
-        -H 'Authorization: token ${GITHUB_TOKEN}' \
-        $url \
-        -d '$(generate_release_data ${1})' | jq -r .upload_url | cut -d { -f'1'"
+        -H "Authorization: token ${GITHUB_TOKEN}" \
+        "$url" \
+        -d "$(generate_release_data ${release_num})" | jq -r .upload_url | cut -d '{' -f1
 }
 
 upload_release_file() {
@@ -409,15 +437,23 @@ log "Using YouTube Music version: $YTMVERSION"
 dl_ytm $YTMVERSION $CURDIR/$YTMVERSION.apk
 if [ "$(unzip -l -q $CURDIR/$YTMVERSION.apk | grep apk)" ]; then
     log "Extracting YouTube Music APK from bundle..."
-    unzip -j -q $CURDIR/$YTMVERSION.zip *.apk -d $YTMMODULEPATH/youtube-music || { error "Failed to extract YouTube Music APK"; exit 1; }
-    rm $CURDIR/$YTMVERSION.zip
+    unzip -j -q $CURDIR/$YTMVERSION.apk *.apk -d $YTMMODULEPATH/youtube-music || { error "Failed to extract YouTube Music APK"; exit 1; }
+    rm -f $CURDIR/$YTMVERSION.apk
 else
     mv $CURDIR/$YTMVERSION.apk $YTMMODULEPATH/youtube-music/base.apk
 fi
 success "Downloaded APKs successfully"
 
 # Create Release
-if [[ $GITHUB_TOKEN ]]; then
+N=1
+YTNAME=RevancedYT_${YTVERSION}_${DATE}_v${N}
+YTMNAME=RevancedYTMusic_${YTMVERSION}_${DATE}_v${N}
+YTVERSIONCODE=${DATE}${N}
+YTMVERSIONCODE=${DATE}${N}
+
+if [ "$SKIP_UPLOAD" = "true" ]; then
+    log "Skipping GitHub release creation/upload (SKIP_UPLOAD=true)"
+elif [[ ${GITHUB_TOKEN:-} ]]; then
     log "Creating GitHub release..."
     for N in {1..9}; do
         YTNAME=RevancedYT_${YTVERSION}_${DATE}_v${N}
@@ -425,8 +461,7 @@ if [[ $GITHUB_TOKEN ]]; then
         generate_message
         YTVERSIONCODE=${DATE}${N}
         YTMVERSIONCODE=${DATE}${N}
-        create_release $N
-        upload_url=$(eval $command)
+        upload_url=$(create_release $N)
         if (grep 'https' <<<$upload_url); then
             success "Created release ${YTNAME}"
             break
@@ -435,6 +470,8 @@ if [[ $GITHUB_TOKEN ]]; then
             continue
         fi
     done
+else
+    warn "GITHUB_TOKEN is not set. Skipping release creation/upload."
 fi
 
 # Patch Apk
@@ -512,8 +549,10 @@ sed "/\"version\"/s/: .*/: \"$YTMVERSION\",/g; \
 success "Update JSON files generated"
 
 # Upload Github Release
-log "Release upload URL: $upload_url"
-if [[ $GITHUB_TOKEN ]]; then
+if [ "$SKIP_UPLOAD" = "true" ]; then
+    log "Skipping GitHub release upload (SKIP_UPLOAD=true)"
+elif [[ ${GITHUB_TOKEN:-} ]]; then
+    log "Release upload URL: $upload_url"
     log "Starting GitHub release upload..."
     upload_release_file $CURDIR/$YTNAME.zip
     upload_release_file $CURDIR/$YTNAME-noroot.apk
@@ -523,4 +562,6 @@ if [[ $GITHUB_TOKEN ]]; then
     upload_release_file $CURDIR/ytmupdate.json
     upload_release_file $CURDIR/changelog.md
     success "All files uploaded successfully!"
+else
+    warn "GITHUB_TOKEN is not set. Skipping release upload."
 fi

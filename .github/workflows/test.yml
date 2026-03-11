@@ -2,6 +2,10 @@
 
 name: Revanced Test
 
+concurrency:
+  group: revanced-test-${{ github.ref }}
+  cancel-in-progress: true
+
 # Allows you to run this workflow manually from the Actions tab
 on:
   [push, workflow_dispatch]
@@ -19,7 +23,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 1
       - name: Setup JDK
         uses: actions/setup-java@v4
         with:
@@ -32,5 +36,7 @@ jobs:
           ORG_GRADLE_PROJECT_githubPackagesUsername: ${{ env.GITHUB_ACTOR }}
           ORG_GRADLE_PROJECT_githubPackagesPassword: ${{ secrets.GITHUB_TOKEN }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          SKIP_UPLOAD: "true"
+          FAST_BUILD: "true"
         run: |
           ./yt.sh test

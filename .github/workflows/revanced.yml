@@ -2,6 +2,10 @@
 
 name: Revanced Release
 
+concurrency:
+  group: revanced-release-${{ github.ref }}
+  cancel-in-progress: true
+
 # Allows you to run this workflow manually from the Actions tab
 on:
   workflow_dispatch:
@@ -20,7 +24,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 1
       - name: Setup JDK
         uses: actions/setup-java@v4
         with:
