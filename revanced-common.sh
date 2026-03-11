@@ -204,15 +204,17 @@ patch_tools() {
 }
 
 build_tools() {
-    local gradle_args=( -Dorg.gradle.java.home="$JAVA_HOME" build --no-daemon --parallel --build-cache )
+    local patches_gradle_args=( -Dorg.gradle.java.home="$JAVA_HOME" build --parallel --build-cache )
+    local cli_gradle_args=( -Dorg.gradle.java.home="$JAVA_HOME" build --parallel --build-cache )
     if [ "$FAST_BUILD" = "true" ]; then
-        gradle_args+=( -x lint )
+        # revanced-cli does not define a lint task; only skip lint for revanced-patches.
+        patches_gradle_args+=( -x lint )
     fi
 
     status "Building ReVanced Patches. This can take a while..."
-    cd "$CURDIR/revanced-patches" && ./gradlew "${gradle_args[@]}" >> "$LOGFILE" 2>&1 || { error "Failed to build ReVanced Patches"; exit 1; }
+    cd "$CURDIR/revanced-patches" && ./gradlew "${patches_gradle_args[@]}" >> "$LOGFILE" 2>&1 || { error "Failed to build ReVanced Patches"; exit 1; }
     status "Building ReVanced CLI..."
-    cd "$CURDIR/revanced-cli" && ./gradlew "${gradle_args[@]}" >> "$LOGFILE" 2>&1 || { error "Failed to build ReVanced CLI"; exit 1; }
+    cd "$CURDIR/revanced-cli" && ./gradlew "${cli_gradle_args[@]}" >> "$LOGFILE" 2>&1 || { error "Failed to build ReVanced CLI"; exit 1; }
 
     PATCHES=$(ls "$CURDIR/revanced-patches/patches/build/libs/patches-$PATCHESVER.rvp")
     CLI=$(ls "$CURDIR/revanced-cli/build/libs/revanced-cli-$CLIVER-all.jar")
