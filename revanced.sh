@@ -7,9 +7,10 @@ WGET_HEADER="User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/2010010
 MODULETEMPLATEPATH=$CURDIR/RevancedModule
 MODULEBUILDROOT=$CURDIR/.module-build
 DATE=$(date +%y%m%d)
+MODE=${1:-build}
 DRAFT=false
 IS_TEST=false
-if [ "${1:-}" = "test" ]; then
+if [ "$MODE" = "test" ]; then
     DRAFT=true
     IS_TEST=true
 fi
@@ -21,6 +22,7 @@ else
 fi
 SKIP_UPLOAD=${SKIP_UPLOAD:-$DEFAULT_SKIP_UPLOAD}
 FAST_BUILD=${FAST_BUILD:-false}
+APKMIRROR_BASE_URL=${APKMIRROR_BASE_URL:-https://www.apkmirror.com}
 
 # ---------------------------------------------------------------------------
 # Per-target arrays – populated by add_target() below.

@@ -133,7 +133,96 @@ clone() {
 }
 
 req() {
-    wget -q -O "$2" --header="$WGET_HEADER" "$1"
+    local url=$1
+    local out=$2
+    local attempt
+    local cookie_header=""
+
+    if [ -n "${APKMIRROR_COOKIE:-}" ]; then
+        cookie_header="--header=Cookie: ${APKMIRROR_COOKIE}"
+    fi
+
+    for attempt in 1 2 3; do
+        if wget -q -O "$out" --header="$WGET_HEADER" $cookie_header "$url"; then
+            return 0
+        fi
+        sleep "$attempt"
+    done
+    return 1
+}
+
+resolve_apkmirror_download_url_from_search() {
+    local package_name=$1
+    local app_slug=$2
+    local version=$3
+    local version_dash search_url search_html
+    local release_path release_url release_html
+    local variant_path variant_url
+    local dl_key_url final_url
+
+    version_dash=${version//./-}
+
+    search_url="${APKMIRROR_BASE_URL}/?post_type=app_release&searchtype=apk&s=${package_name//./+}+${version}"
+    search_html=$(req "$search_url" - 2>/dev/null || true)
+
+    release_path=$(printf '%s' "$search_html" | grep -oE "/apk/google-inc/${app_slug}/${app_slug}-${version_dash}-release/" | head -1)
+
+    if [ -z "$release_path" ]; then
+        search_url="${APKMIRROR_BASE_URL}/?post_type=app_release&searchtype=apk&s=${app_slug//-/%20}+${version}"
+        search_html=$(req "$search_url" - 2>/dev/null || true)
+        release_path=$(printf '%s' "$search_html" | grep -oE "/apk/google-inc/${app_slug}/${app_slug}-${version_dash}-release/" | head -1)
+    fi
+
+    if [ -z "$release_path" ]; then
+        release_path="/apk/google-inc/${app_slug}/${app_slug}-${version_dash}-release/"
+    fi
+
+    release_url="${APKMIRROR_BASE_URL}${release_path}"
+    release_html=$(req "$release_url" - 2>/dev/null || true)
+
+    variant_path=$(printf '%s' "$release_html" | grep arm64 -A30 | grep '>APK<' -A20 | grep "${app_slug}" | head -1 | sed "s#.*-release/##g;s#/[\"#].*##g")
+    if [ -z "$variant_path" ]; then
+        variant_path=$(printf '%s' "$release_html" | grep Variant -A50 | grep '>APK<' -A2 | grep android-apk-download | head -1 | sed "s#.*-release/##g;s#/[\"#].*##g")
+    fi
+    [ -z "$variant_path" ] && return 1
+
+    variant_url="${release_url}${variant_path}"
+    dl_key_url="${APKMIRROR_BASE_URL}$(req "$variant_url" - | grep "downloadButton" | grep "forcebaseapk" | sed -n 's;.*href="\(.*key=[^"]*\)".*;\1;p')"
+    [ -z "$dl_key_url" ] && return 1
+
+    final_url="${APKMIRROR_BASE_URL}$(req "$dl_key_url" - | grep "please click" | sed 's#.*href="\(.*key=[^"]*\)">.*#\1#;s#amp;##g')"
+    [ -z "$final_url" ] && return 1
+
+    printf '%s' "$final_url"
+}
+
+download_apkmirror_apk() {
+    local app_name=$1
+    local package_name=$2
+    local app_slug=$3
+    local version=$4
+    local out_path=$5
+    local url
+
+    rm -rf "$out_path"
+    log "Downloading ${app_name} version ${version}..."
+
+    url=$(resolve_apkmirror_download_url_from_search "$package_name" "$app_slug" "$version") || {
+        error "Failed to resolve APKMirror download URL for ${app_name} (${package_name}) ${version}"
+        return 1
+    }
+
+    log "${app_name} download URL: $url"
+    req "$url" "$out_path" >> "$LOGFILE" 2>&1 || { error "Failed to download ${app_name} APK"; return 1; }
+    if [ ! -s "$out_path" ]; then
+        error "${app_name} APK download failed or empty"
+        return 1
+    fi
+    if head -n 1 "$out_path" | grep -qi '<!doctype\|<html'; then
+        error "${app_name} download resolved to HTML page, not APK"
+        return 1
+    fi
+    success "Downloaded ${app_name} APK to $out_path"
 }
 
 dl_target_apk() {
@@ -142,31 +231,28 @@ dl_target_apk() {
     local out_path=$3
     local app_slug=${T_APK_DIR[$i]}
     local app_name=${T_DISPLAY_NAME[$i]}
-    local page_html variant_path url
+    local package_name=${T_PACKAGE[$i]}
 
-    rm -rf "$out_path"
-    log "Downloading ${app_name} version ${version}..."
+    download_apkmirror_apk \
+        "$app_name" \
+        "$package_name" \
+        "$app_slug" \
+        "$version" \
+        "$out_path" || exit 1
+}
 
-    url="https://www.apkmirror.com/apk/google-inc/youtube/${app_slug}-${version//./-}-release/"
-    page_html=$(req "$url" -)
+# download_targets_parallel <versions_array_name> <output_paths_array_name> [job_label_prefix]
+download_targets_parallel() {
+    local versions_name=$1
+    local out_paths_name=$2
+    local job_label_prefix=${3:-Downloading}
+    local -n versions_ref=$versions_name
+    local -n out_paths_ref=$out_paths_name
 
-    if [ "$app_slug" = "youtube" ]; then
-        variant_path=$(printf '%s' "$page_html" | grep "Variant" -A50 | grep ">APK<" -A2 | grep android-apk-download | sed "s#.*-release/##g;s#/\#.*##g")
-    else
-        variant_path=$(printf '%s' "$page_html" | grep arm64 -A30 | grep '>APK<' -A20 | grep "$app_slug" | head -1 | sed "s#.*-release/##g;s#/\".*##g")
-    fi
-
-    url="$url$variant_path"
-    url="https://www.apkmirror.com$(req "$url" - | grep "downloadButton" | grep "forcebaseapk" | sed -n 's;.*href="\(.*key=[^"]*\)".*;\1;p')"
-    url="https://www.apkmirror.com$(req "$url" - | grep "please click" | sed 's#.*href="\(.*key=[^"]*\)">.*#\1#;s#amp;##p')"
-
-    log "${app_name} download URL: $url"
-    req "$url" "$out_path" >> "$LOGFILE" 2>&1 || { error "Failed to download ${app_name} APK"; exit 1; }
-    if [ ! -f "$out_path" ]; then
-        error "${app_name} APK download failed or empty"
-        exit 1
-    fi
-    success "Downloaded ${app_name} APK to $out_path"
+    for i in "${!versions_ref[@]}"; do
+        status "${job_label_prefix} ${T_MODULE_NAME[$i]:-target-$i} APK"
+        dl_target_apk "$i" "${versions_ref[$i]}" "${out_paths_ref[$i]}"
+    done
 }
 
 clone_tools() {
@@ -312,13 +398,6 @@ EOF
     chmod 755 "$MODULEPATH/customize.sh" "$MODULEPATH/service.sh"
 }
 
-for_each_target() {
-    local fn=$1
-    for i in "${!T_PACKAGE[@]}"; do
-        "$fn" "$i"
-    done
-}
-
 generate_message() {
     echo "**RevancedYT-$DATE-$N**" >"$CURDIR/changelog.md"
     echo "" >>"$CURDIR/changelog.md"
@@ -420,22 +499,16 @@ resolve_supported_versions() {
 
 download_base_apks() {
     status "Downloading base APKs..."
-    local pids=() labels=()
+    local versions=() download_paths=()
     for i in "${!T_PACKAGE[@]}"; do
-        local ver=${T_VERSION[$i]}
-        local dest="$CURDIR/.module-build/${T_APK_DIR[$i]}-download.apk"
-        dl_target_apk "$i" "$ver" "$dest" &
-        pids+=("$!"); labels+=("Downloading ${T_MODULE_NAME[$i]} APK")
+        versions[$i]=${T_VERSION[$i]}
+        download_paths[$i]="$CURDIR/.module-build/${T_APK_DIR[$i]}-download.apk"
     done
-    local job_args=()
-    for j in "${!pids[@]}"; do
-        job_args+=("${labels[$j]}" "${pids[$j]}")
-    done
-    wait_for_jobs "${job_args[@]}"
+
+    download_targets_parallel versions download_paths "Downloading"
 
     for i in "${!T_PACKAGE[@]}"; do
-        local ver=${T_VERSION[$i]}
-        local dest="$CURDIR/.module-build/${T_APK_DIR[$i]}-download.apk"
+        local dest=${download_paths[$i]}
         local apk_dir="${T_MODULE_PATH[$i]}/${T_APK_DIR[$i]}"
         if unzip -l -q "$dest" | grep -q apk; then
             log "Extracting ${T_MODULE_NAME[$i]} APK from bundle..."
