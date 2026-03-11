@@ -26,6 +26,7 @@ jobs:
         with:
           distribution: "temurin"
           java-version: '17'
+          cache: 'gradle'
       - name: Start building
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
