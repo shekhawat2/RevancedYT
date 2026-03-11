@@ -151,9 +151,29 @@ req() {
     return 1
 }
 
+# find_apkmirror_release_url PACKAGE VERSION
+# Searches APKMirror using last segment of package name + version.
+# e.g. com.google.android.youtube 20.14.43 -> searches "youtube+20.14.43"
+find_apkmirror_release_url() {
+    local package=$1
+    local version=$2
+    local ver_dashed="${version//./-}"
+    local app_name search_html release_url
+
+    # Use only the last dot-segment so no dots appear in the query (avoids WAF 403)
+    app_name="${package##*.}"
+
+    search_html=$(req "${APKMIRROR_BASE_URL}/?s=${app_name}+${version}&post_type=app_release&searchtype=apk" - 2>/dev/null || true)
+    release_url=$(printf '%s' "$search_html" \
+        | grep -o 'href="/apk/[^"]*-'"${ver_dashed}"'-release/"' \
+        | grep -v '#' \
+        | sed 's/href="//;s/"$//' | head -1)
+    [ -n "$release_url" ] && printf '%s%s' "$APKMIRROR_BASE_URL" "$release_url"
+}
+
 download_apkmirror_apk() {
     local app_name=$1
-    local app_slug=$2
+    local package=$2
     local version=$3
     local out_path=$4
     local release_url release_html
@@ -161,16 +181,18 @@ download_apkmirror_apk() {
     local url final_path extra_path
 
     rm -rf "$out_path"
-    log "Downloading ${app_name} version ${version}..."
+    log "Downloading ${app_name} ${version} (package: ${package})..."
 
-    release_url="${APKMIRROR_BASE_URL}/apk/google-inc/${app_slug}/${app_slug}-${version//./-}-release/"
-    release_html=$(req "$release_url" - 2>/dev/null || true)
-    if [ -z "$release_html" ] && [ "$app_slug" = "youtube-music" ]; then
-        release_url="${APKMIRROR_BASE_URL}/apk/google-inc/youtube/youtube-music-${version//./-}-release/"
-        release_html=$(req "$release_url" - 2>/dev/null || true)
+    release_url=$(find_apkmirror_release_url "$package" "$version")
+    if [ -z "$release_url" ]; then
+        error "Failed to find APKMirror release page for ${package} ${version}"
+        return 1
     fi
+    [[ "$release_url" != http* ]] && release_url="${APKMIRROR_BASE_URL}${release_url}"
 
-    variant_path=$(printf '%s' "$release_html" | grep arm64 -A30 | grep '>APK<' -A20 | grep "${app_slug}" | head -1 | sed 's#.*-release/##g;s#/".*##g')
+    release_html=$(req "$release_url" - 2>/dev/null || true)
+
+    variant_path=$(printf '%s' "$release_html" | grep arm64 -A30 | grep '>APK<' -A20 | grep android-apk-download | head -1 | sed 's#.*-release/##g;s#/".*##g')
     if [ -z "$variant_path" ]; then
         variant_path=$(printf '%s' "$release_html" | grep Variant -A50 | grep '>APK<' -A2 | grep android-apk-download | head -1 | sed 's#.*-release/##g;s#/".*##g')
     fi
@@ -213,12 +235,12 @@ dl_target_apk() {
     local i=$1
     local version=$2
     local out_path=$3
-    local app_slug=${T_APK_DIR[$i]}
+    local package=${T_PACKAGE[$i]}
     local app_name=${T_DISPLAY_NAME[$i]}
 
     download_apkmirror_apk \
         "$app_name" \
-        "$app_slug" \
+        "$package" \
         "$version" \
         "$out_path" || exit 1
 }
