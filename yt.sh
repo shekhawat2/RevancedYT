@@ -26,6 +26,7 @@ FAST_BUILD=${FAST_BUILD:-false}
 
 # Logging and cleanup functions
 log() { echo "[$(date +'%H:%M:%S')] $*" >> "$LOGFILE"; }
+status() { echo "==> $*" | tee -a "$LOGFILE"; }
 warn() { echo "⚠️  $*" | tee -a "$LOGFILE"; }
 error() { echo "❌ ERROR: $*" | tee -a "$LOGFILE"; }
 success() { echo "✅ $*" | tee -a "$LOGFILE"; }
@@ -41,6 +42,28 @@ cleanup_on_exit() {
 }
 
 trap cleanup_on_exit EXIT
+
+wait_for_jobs() {
+    local failed=0
+    local job_name pid job_status
+
+    while [ "$#" -gt 0 ]; do
+        job_name=$1
+        pid=$2
+        shift 2
+
+        job_status=0
+        wait "$pid" || job_status=$?
+        if [ $job_status -ne 0 ]; then
+            error "$job_name failed"
+            failed=1
+        fi
+    done
+
+    if [ $failed -ne 0 ]; then
+        exit 1
+    fi
+}
 
 init_auth_env() {
     log "Initializing GitHub authentication..."
@@ -178,9 +201,12 @@ dl_ytm() {
 }
 
 clone_tools() {
-    log "Cloning ReVanced tools..."
-    clone revanced-patches main revanced-patches
-    clone revanced-cli main revanced-cli
+    status "Preparing ReVanced tools..."
+    clone revanced-patches main revanced-patches &
+    patches_clone_pid=$!
+    clone revanced-cli main revanced-cli &
+    cli_clone_pid=$!
+    wait_for_jobs "Updating revanced-patches" "$patches_clone_pid" "Updating revanced-cli" "$cli_clone_pid"
     PATCHESVER=$(grep version $CURDIR/revanced-patches/gradle.properties | cut -d = -f 2 | sed 's/^[[:space:]]*//g')
     CLIVER=$(grep version $CURDIR/revanced-cli/gradle.properties | cut -d = -f 2 | sed 's/^[[:space:]]*//g')
     log "ReVanced Patches version: $PATCHESVER"
@@ -188,7 +214,7 @@ clone_tools() {
 }
 
 patch_tools() {
-log "Patching ReVanced tools..."
+status "Patching ReVanced tools..."
 PATCHFILE=$CURDIR/revanced-patches/extensions/shared/library/src/main/java/app/revanced/extension/shared/checks/CheckEnvironmentPatch.java
 FIND_START="    public static void check(Activity context) {"
 FIND_END="    }"
@@ -207,9 +233,9 @@ build_tools() {
         gradle_args+=( -x lint )
     fi
 
-    log "Building ReVanced Patches..."
+    status "Building ReVanced Patches. This can take a while..."
     cd $CURDIR/revanced-patches && ./gradlew "${gradle_args[@]}" >> "$LOGFILE" 2>&1 || { error "Failed to build ReVanced Patches"; exit 1; }
-    log "Building ReVanced CLI..."
+    status "Building ReVanced CLI..."
     cd $CURDIR/revanced-cli && ./gradlew "${gradle_args[@]}" >> "$LOGFILE" 2>&1 || { error "Failed to build ReVanced CLI"; exit 1; }
     
     PATCHES=$(ls $CURDIR/revanced-patches/patches/build/libs/patches-$PATCHESVER.rvp)
@@ -398,6 +424,7 @@ init_runtime_deps
 init_auth_env
 init_java_env
 init_keystore_env
+status "Fetching latest app versions..."
 get_latestytversion
 get_latestytmversion
 
@@ -411,7 +438,7 @@ patch_tools
 build_tools
 
 # Cleanup
-log "Cleaning up old artifacts..."
+status "Cleaning old artifacts and preparing module workspace..."
 find $CURDIR -type f -name "*.apk" -exec rm -rf {} \; 2>/dev/null || true
 find $CURDIR -type f -name "*.zip" -exec rm -rf {} \; 2>/dev/null || true
 rm -rf $MODULEBUILDROOT
@@ -423,18 +450,22 @@ mkdir -p $YTMMODULEPATH/youtube-music
 success "Workspace initialized"
 
 # Fetch latest official supported YT versions
-log "Fetching compatible YouTube versions..."
+status "Resolving compatible YouTube version from patches..."
 YTVERSION=$(java -jar $CLI list-patches -ipv -f com.google.android.youtube $PATCHES 2>>"$LOGFILE" | \
     sed -n '/Video\ ads/,/^$/p' | sed -n '/Compatible\ versions:/,/^$/p' | tail -n +2 | sort -r | head -1 | sed 's/^[ \t]*//')
 success "Using YouTube version: $YTVERSION"
 
-# Download Youtube
-dl_yt $YTVERSION $YTMODULEPATH/youtube/base.apk
-
 YTMVERSION="8.46.53"
+success "Using YouTube Music version: $YTMVERSION"
+status "Downloading base APKs..."
 log "Using YouTube Music version: $YTMVERSION"
-# Download Youtube Music
-dl_ytm $YTMVERSION $CURDIR/$YTMVERSION.apk
+# Download base APKs
+dl_yt $YTVERSION $YTMODULEPATH/youtube/base.apk &
+yt_download_pid=$!
+dl_ytm $YTMVERSION $CURDIR/$YTMVERSION.apk &
+ytm_download_pid=$!
+wait_for_jobs "Downloading YouTube APK" "$yt_download_pid" "Downloading YouTube Music APK" "$ytm_download_pid"
+
 if [ "$(unzip -l -q $CURDIR/$YTMVERSION.apk | grep apk)" ]; then
     log "Extracting YouTube Music APK from bundle..."
     unzip -j -q $CURDIR/$YTMVERSION.apk *.apk -d $YTMMODULEPATH/youtube-music || { error "Failed to extract YouTube Music APK"; exit 1; }
@@ -454,7 +485,7 @@ YTMVERSIONCODE=${DATE}${N}
 if [ "$SKIP_UPLOAD" = "true" ]; then
     log "Skipping GitHub release creation/upload (SKIP_UPLOAD=true)"
 elif [[ ${GITHUB_TOKEN:-} ]]; then
-    log "Creating GitHub release..."
+    status "Creating GitHub release..."
     for N in {1..9}; do
         YTNAME=RevancedYT_${YTVERSION}_${DATE}_v${N}
         YTMNAME=RevancedYTMusic_${YTMVERSION}_${DATE}_v${N}
@@ -466,7 +497,7 @@ elif [[ ${GITHUB_TOKEN:-} ]]; then
             success "Created release ${YTNAME}"
             break
         else
-            log "Retrying release creation (attempt $N/9)..."
+            status "Retrying release creation (attempt $N/9)..."
             continue
         fi
     done
@@ -475,71 +506,107 @@ else
 fi
 
 # Patch Apk
-log "Patching YouTube..."
-java -jar $CLI patch --purge \
-    -o $YTMODULEPATH/revanced.apk \
-    --keystore=$CURDIR/revanced.keystore \
-    --keystore-password=$KEYSTORE_PASSWORD \
-    --keystore-entry-alias=shekhawat2 \
-    -p $PATCHES \
-    --force \
-    -d "GmsCore support" \
-    $YTMODULEPATH/youtube/base.apk >> "$LOGFILE" 2>&1 || { error "Failed to patch YouTube"; exit 1; }
-zip -d $YTMODULEPATH/revanced.apk lib/* >> "$LOGFILE" 2>&1 || true
-success "YouTube patched successfully"
+status "Patching YouTube and YouTube Music in parallel. This is one of the longest steps..."
+(
+    java -jar $CLI patch --purge \
+        -o $YTMODULEPATH/revanced.apk \
+        --keystore=$CURDIR/revanced.keystore \
+        --keystore-password=$KEYSTORE_PASSWORD \
+        --keystore-entry-alias=shekhawat2 \
+        -p $PATCHES \
+        --force \
+        -d "GmsCore support" \
+        $YTMODULEPATH/youtube/base.apk >> "$LOGFILE" 2>&1
+    zip -d $YTMODULEPATH/revanced.apk lib/* >> "$LOGFILE" 2>&1 || true
+) &
+yt_patch_pid=$!
 
-log "Patching YouTube Music..."
-java -jar $CLI patch --purge \
-    -o $YTMMODULEPATH/revanced-music.apk \
-    --keystore=$CURDIR/revanced.keystore \
-    --keystore-password=$KEYSTORE_PASSWORD \
-    --keystore-entry-alias=shekhawat2 \
-    -p $PATCHES \
-    --force \
-    -d "GmsCore support" \
-    $YTMMODULEPATH/youtube-music/base.apk >> "$LOGFILE" 2>&1 || { error "Failed to patch YouTube Music"; exit 1; }
+(
+    java -jar $CLI patch --purge \
+        -o $YTMMODULEPATH/revanced-music.apk \
+        --keystore=$CURDIR/revanced.keystore \
+        --keystore-password=$KEYSTORE_PASSWORD \
+        --keystore-entry-alias=shekhawat2 \
+        -p $PATCHES \
+        --force \
+        -d "GmsCore support" \
+        $YTMMODULEPATH/youtube-music/base.apk >> "$LOGFILE" 2>&1
+) &
+ytm_patch_pid=$!
+
+yt_patch_status=0
+ytm_patch_status=0
+wait $yt_patch_pid || yt_patch_status=$?
+wait $ytm_patch_pid || ytm_patch_status=$?
+
+if [ $yt_patch_status -ne 0 ]; then
+    error "Failed to patch YouTube"
+fi
+if [ $ytm_patch_status -ne 0 ]; then
+    error "Failed to patch YouTube Music"
+fi
+if [ $yt_patch_status -ne 0 ] || [ $ytm_patch_status -ne 0 ]; then
+    exit 1
+fi
+
+success "YouTube patched successfully"
 success "YouTube Music patched successfully"
 
 # Create Module
-log "Creating YouTube module ZIP..."
-generate_module_scripts "$YTMODULEPATH" yt
-generate_module_prop "$YTMODULEPATH" yt "$YTVERSION" "$YTVERSIONCODE"
-cd $YTMODULEPATH && zip -qr9 $CURDIR/$YTNAME.zip META-INF module.prop customize.sh service.sh youtube revanced.apk >> "$LOGFILE" 2>&1 || { error "Failed to create YouTube module ZIP"; exit 1; }
-success "Created $YTNAME.zip"
+status "Creating module ZIPs..."
+(
+    generate_module_scripts "$YTMODULEPATH" yt
+    generate_module_prop "$YTMODULEPATH" yt "$YTVERSION" "$YTVERSIONCODE"
+    cd "$YTMODULEPATH" && zip -qr9 "$CURDIR/$YTNAME.zip" META-INF module.prop customize.sh service.sh youtube revanced.apk >> "$LOGFILE" 2>&1
+) &
+yt_module_pid=$!
 
-log "Creating YouTube Music module ZIP..."
-generate_module_scripts "$YTMMODULEPATH" ytm
-generate_module_prop "$YTMMODULEPATH" ytm "$YTMVERSION" "$YTMVERSIONCODE"
-cd $YTMMODULEPATH && zip -qr9 $CURDIR/$YTMNAME.zip META-INF module.prop customize.sh service.sh youtube-music revanced-music.apk >> "$LOGFILE" 2>&1 || { error "Failed to create YouTube Music module ZIP"; exit 1; }
+(
+    generate_module_scripts "$YTMMODULEPATH" ytm
+    generate_module_prop "$YTMMODULEPATH" ytm "$YTMVERSION" "$YTMVERSIONCODE"
+    cd "$YTMMODULEPATH" && zip -qr9 "$CURDIR/$YTMNAME.zip" META-INF module.prop customize.sh service.sh youtube-music revanced-music.apk >> "$LOGFILE" 2>&1
+) &
+ytm_module_pid=$!
+
+wait_for_jobs "Creating YouTube module ZIP" "$yt_module_pid" "Creating YouTube Music module ZIP" "$ytm_module_pid"
+success "Created $YTNAME.zip"
 success "Created $YTMNAME.zip"
 
 # NoRoot
-log "Creating NoRoot variants..."
-zip -d $YTMODULEPATH/youtube/base.apk lib/x86/* lib/x86_64/* >> "$LOGFILE" 2>&1 || true
-java -jar $CLI patch --purge \
-    -o $CURDIR/${YTNAME}-noroot.apk \
-    --keystore=$CURDIR/revanced.keystore \
-    --keystore-password=$KEYSTORE_PASSWORD \
-    --keystore-entry-alias=shekhawat2 \
-    -p $PATCHES \
-    --force \
-    -e "GmsCore support" \
-    $YTMODULEPATH/youtube/base.apk >> "$LOGFILE" 2>&1 || { error "Failed to create YouTube NoRoot APK"; exit 1; }
-success "Created ${YTNAME}-noroot.apk"
+status "Creating NoRoot APK variants..."
+(
+    zip -d "$YTMODULEPATH/youtube/base.apk" lib/x86/* lib/x86_64/* >> "$LOGFILE" 2>&1 || true
+    java -jar $CLI patch --purge \
+        -o "$CURDIR/${YTNAME}-noroot.apk" \
+        --keystore=$CURDIR/revanced.keystore \
+        --keystore-password=$KEYSTORE_PASSWORD \
+        --keystore-entry-alias=shekhawat2 \
+        -p $PATCHES \
+        --force \
+        -e "GmsCore support" \
+        "$YTMODULEPATH/youtube/base.apk" >> "$LOGFILE" 2>&1
+) &
+yt_noroot_pid=$!
 
-java -jar $CLI patch --purge \
-    -o $CURDIR/${YTMNAME}-noroot.apk \
-    --keystore=$CURDIR/revanced.keystore \
-    --keystore-password=$KEYSTORE_PASSWORD \
-    --keystore-entry-alias=shekhawat2 \
-    -p $PATCHES \
-    --force \
-    -e "GmsCore support" \
-    $YTMMODULEPATH/youtube-music/base.apk >> "$LOGFILE" 2>&1 || { error "Failed to create YouTube Music NoRoot APK"; exit 1; }
+(
+    java -jar $CLI patch --purge \
+        -o "$CURDIR/${YTMNAME}-noroot.apk" \
+        --keystore=$CURDIR/revanced.keystore \
+        --keystore-password=$KEYSTORE_PASSWORD \
+        --keystore-entry-alias=shekhawat2 \
+        -p $PATCHES \
+        --force \
+        -e "GmsCore support" \
+        "$YTMMODULEPATH/youtube-music/base.apk" >> "$LOGFILE" 2>&1
+) &
+ytm_noroot_pid=$!
+
+wait_for_jobs "Creating YouTube NoRoot APK" "$yt_noroot_pid" "Creating YouTube Music NoRoot APK" "$ytm_noroot_pid"
+success "Created ${YTNAME}-noroot.apk"
 success "Created ${YTMNAME}-noroot.apk"
 
 # Generate updateJson
-log "Generating update JSON files..."
+status "Generating update JSON files..."
 sed "/\"version\"/s/: .*/: \"$YTVERSION\",/g; \
     /\"versionCode\"/s/: .*/: $YTVERSIONCODE,/g; \
     /\"zipUrl\"/s/REVANCEDZIP/$YTNAME/g" $CURDIR/update.json >$CURDIR/ytupdate.json
@@ -553,7 +620,7 @@ if [ "$SKIP_UPLOAD" = "true" ]; then
     log "Skipping GitHub release upload (SKIP_UPLOAD=true)"
 elif [[ ${GITHUB_TOKEN:-} ]]; then
     log "Release upload URL: $upload_url"
-    log "Starting GitHub release upload..."
+    status "Uploading release assets..."
     upload_release_file $CURDIR/$YTNAME.zip
     upload_release_file $CURDIR/$YTNAME-noroot.apk
     upload_release_file $CURDIR/$YTMNAME.zip
