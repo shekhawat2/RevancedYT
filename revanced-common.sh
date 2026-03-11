@@ -157,14 +157,13 @@ resolve_apkmirror_download_url_from_search() {
     local version=$3
     local version_dash search_url search_html
     local release_path release_url release_html
-    local variant_path variant_url
-    local dl_key_url final_url
+    local variant_path dl_key_path dl_key_url
+    local final_path final_url
 
     version_dash=${version//./-}
 
     search_url="${APKMIRROR_BASE_URL}/?post_type=app_release&searchtype=apk&s=${package_name//./+}+${version}"
     search_html=$(req "$search_url" - 2>/dev/null || true)
-
     release_path=$(printf '%s' "$search_html" | grep -oE "/apk/google-inc/${app_slug}/${app_slug}-${version_dash}-release/" | head -1)
 
     if [ -z "$release_path" ]; then
@@ -179,20 +178,35 @@ resolve_apkmirror_download_url_from_search() {
 
     release_url="${APKMIRROR_BASE_URL}${release_path}"
     release_html=$(req "$release_url" - 2>/dev/null || true)
+    if [ -z "$release_html" ]; then
+        release_url="${APKMIRROR_BASE_URL}/apk/google-inc/${app_slug}/${app_slug}-${version_dash}-release/"
+        release_html=$(req "$release_url" - 2>/dev/null || true)
+    fi
+    if [ -z "$release_html" ] && [ "$app_slug" = "youtube-music" ]; then
+        release_url="${APKMIRROR_BASE_URL}/apk/google-inc/youtube/youtube-music-${version_dash}-release/"
+        release_html=$(req "$release_url" - 2>/dev/null || true)
+    fi
 
-    variant_path=$(printf '%s' "$release_html" | grep arm64 -A30 | grep '>APK<' -A20 | grep "${app_slug}" | head -1 | sed "s#.*-release/##g;s#/[\"#].*##g")
+    variant_path=$(printf '%s' "$release_html" | grep arm64 -A30 | grep '>APK<' -A20 | grep "${app_slug}" | head -1 | sed 's#.*-release/##g;s#/".*##g;s/#.*$//')
     if [ -z "$variant_path" ]; then
-        variant_path=$(printf '%s' "$release_html" | grep Variant -A50 | grep '>APK<' -A2 | grep android-apk-download | head -1 | sed "s#.*-release/##g;s#/[\"#].*##g")
+        variant_path=$(printf '%s' "$release_html" | grep Variant -A50 | grep '>APK<' -A2 | grep android-apk-download | head -1 | sed 's#.*-release/##g;s#/".*##g;s/#.*$//')
+    fi
+    if [ -z "$variant_path" ]; then
+        variant_path=$(printf '%s' "$release_html" | grep -oE "${app_slug}-${version_dash}(-[0-9]+)?-android-apk-download/" | head -1)
     fi
     [ -z "$variant_path" ] && return 1
 
-    variant_url="${release_url}${variant_path}"
-    dl_key_url="${APKMIRROR_BASE_URL}$(req "$variant_url" - | grep "downloadButton" | grep "forcebaseapk" | sed -n 's;.*href="\(.*key=[^"]*\)".*;\1;p')"
-    [ -z "$dl_key_url" ] && return 1
+    dl_key_path=$(req "${release_url}${variant_path}" - | grep "downloadButton" | grep "forcebaseapk" | sed -n 's;.*href="\(.*key=[^"]*\)".*;\1;p' | head -1 | sed 's/&amp;/\&/g')
+    [ -z "$dl_key_path" ] && return 1
+    dl_key_url="${APKMIRROR_BASE_URL}${dl_key_path}"
 
-    final_url="${APKMIRROR_BASE_URL}$(req "$dl_key_url" - | grep "please click" | sed 's#.*href="\(.*key=[^"]*\)">.*#\1#;s#amp;##g')"
-    [ -z "$final_url" ] && return 1
+    final_path=$(req "$dl_key_url" - | grep -o 'id="download-link"[^>]*href="[^"]*"' | sed 's#.*href="##;s/"$//;s/&amp;/\&/g' | head -1)
+    if [ -z "$final_path" ]; then
+        final_path=$(req "$dl_key_url" - | grep "please click" | sed 's#.*href="\(.*key=[^"]*\)">.*#\1#;s#amp;##g' | head -1)
+    fi
+    [ -z "$final_path" ] && return 1
 
+    final_url="${APKMIRROR_BASE_URL}${final_path}"
     printf '%s' "$final_url"
 }
 
@@ -202,21 +216,51 @@ download_apkmirror_apk() {
     local app_slug=$3
     local version=$4
     local out_path=$5
-    local url
+    local release_url release_html
+    local variant_path dl_key_path
+    local url final_path extra_path
 
     rm -rf "$out_path"
     log "Downloading ${app_name} version ${version}..."
 
-    url=$(resolve_apkmirror_download_url_from_search "$package_name" "$app_slug" "$version") || {
-        error "Failed to resolve APKMirror download URL for ${app_name} (${package_name}) ${version}"
-        return 1
-    }
+    release_url="${APKMIRROR_BASE_URL}/apk/google-inc/${app_slug}/${app_slug}-${version//./-}-release/"
+    release_html=$(req "$release_url" - 2>/dev/null || true)
+    if [ -z "$release_html" ] && [ "$app_slug" = "youtube-music" ]; then
+        release_url="${APKMIRROR_BASE_URL}/apk/google-inc/youtube/youtube-music-${version//./-}-release/"
+        release_html=$(req "$release_url" - 2>/dev/null || true)
+    fi
+
+    variant_path=$(printf '%s' "$release_html" | grep arm64 -A30 | grep '>APK<' -A20 | grep "${app_slug}" | head -1 | sed 's#.*-release/##g;s#/".*##g')
+    if [ -z "$variant_path" ]; then
+        variant_path=$(printf '%s' "$release_html" | grep Variant -A50 | grep '>APK<' -A2 | grep android-apk-download | head -1 | sed 's#.*-release/##g;s#/".*##g')
+    fi
+    [ -z "$variant_path" ] && { error "Failed to find APK variant for ${app_name} ${version}"; return 1; }
+
+    url="${release_url}${variant_path}"
+    dl_key_path=$(req "$url" - | grep "downloadButton" | grep "forcebaseapk" | sed -n 's;.*href="\(.*key=[^"]*\)".*;\1;p' | head -1 | sed 's/&amp;/\&/g')
+    [ -z "$dl_key_path" ] && { error "Failed to extract download key for ${app_name} ${version}"; return 1; }
+
+    url="${APKMIRROR_BASE_URL}${dl_key_path}"
+    final_path=$(req "$url" - | grep "please click" | sed 's#.*href="\(.*key=[^"]*\)">.*#\1#;s#amp;##g' | head -1)
+    if [ -z "$final_path" ]; then
+        final_path=$(req "$url" - | grep -o 'id="download-link"[^>]*href="[^"]*"' | sed 's#.*href="##;s/"$//;s/&amp;/\&/g' | head -1)
+    fi
+    [ -z "$final_path" ] && { error "Failed to extract final download URL for ${app_name} ${version}"; return 1; }
+
+    url="${APKMIRROR_BASE_URL}${final_path}"
 
     log "${app_name} download URL: $url"
     req "$url" "$out_path" >> "$LOGFILE" 2>&1 || { error "Failed to download ${app_name} APK"; return 1; }
     if [ ! -s "$out_path" ]; then
         error "${app_name} APK download failed or empty"
         return 1
+    fi
+    if head -n 1 "$out_path" | grep -qi '<!doctype\|<html'; then
+        extra_path=$(grep -o 'id="download-link"[^>]*href="[^"]*"' "$out_path" | sed 's#.*href="##;s/"$//;s/&amp;/\&/g' | head -1)
+        if [ -n "$extra_path" ]; then
+            log "${app_name} requires extra download hop"
+            req "${APKMIRROR_BASE_URL}${extra_path}" "$out_path" >> "$LOGFILE" 2>&1 || { error "Failed extra-hop download for ${app_name}"; return 1; }
+        fi
     fi
     if head -n 1 "$out_path" | grep -qi '<!doctype\|<html'; then
         error "${app_name} download resolved to HTML page, not APK"
