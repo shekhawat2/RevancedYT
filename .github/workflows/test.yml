@@ -35,7 +35,7 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('yt.sh', '.github/workflows/test.yml', '.github/workflows/revanced.yml') }}
+          key: ${{ runner.os }}-gradle-${{ hashFiles('revanced.sh', '.github/workflows/test.yml', '.github/workflows/revanced.yml') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
       - name: Start building
@@ -47,4 +47,4 @@ jobs:
           SKIP_UPLOAD: "true"
           FAST_BUILD: "true"
         run: |
-          ./yt.sh test
+          ./revanced.sh test

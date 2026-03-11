@@ -36,7 +36,7 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('yt.sh', '.github/workflows/test.yml', '.github/workflows/revanced.yml') }}
+          key: ${{ runner.os }}-gradle-${{ hashFiles('revanced.sh', '.github/workflows/test.yml', '.github/workflows/revanced.yml') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
       - name: Start building
@@ -46,4 +46,4 @@ jobs:
           ORG_GRADLE_PROJECT_githubPackagesPassword: ${{ secrets.GITHUB_TOKEN }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
-          ./yt.sh
+          ./revanced.sh
