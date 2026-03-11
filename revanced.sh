@@ -8,62 +8,52 @@ MODULETEMPLATEPATH=$CURDIR/RevancedModule
 MODULEBUILDROOT=$CURDIR/.module-build
 DATE=$(date +%y%m%d)
 MODE=${1:-build}
-DRAFT=false
 IS_TEST=false
 if [ "$MODE" = "test" ]; then
-    DRAFT=true
     IS_TEST=true
 fi
-
-if [ "$IS_TEST" = "true" ]; then
-    DEFAULT_SKIP_UPLOAD=true
-else
-    DEFAULT_SKIP_UPLOAD=false
-fi
-SKIP_UPLOAD=${SKIP_UPLOAD:-$DEFAULT_SKIP_UPLOAD}
+DRAFT=$IS_TEST
+SKIP_UPLOAD=${SKIP_UPLOAD:-$IS_TEST}
 FAST_BUILD=${FAST_BUILD:-false}
 APKMIRROR_BASE_URL=${APKMIRROR_BASE_URL:-https://www.apkmirror.com}
 
 # ---------------------------------------------------------------------------
 # Per-target arrays – populated by add_target() below.
-T_PACKAGE=() T_APK_DIR=() T_MODULE_APK=() T_MODULE_ID=() T_MODULE_NAME=()
+T_PACKAGE=() T_APK_DIR=() T_MODULE_ID=() T_MODULE_NAME=()
 T_MODULE_DESC=() T_UPDATE_JSON=() T_UPDATE_FILE=() T_UNINSTALL_FIRST=()
 T_LABEL=() T_DISPLAY_NAME=() T_FALLBACK_VERSION=()
 T_VERSION=() T_VERSIONCODE=() T_NAME=() T_MODULE_PATH=()
 
-# add_target SHORT DISPLAY PACKAGE APK_DIR SUFFIX UNINSTALL_FIRST [FALLBACK_VERSION]
-#   SHORT           - key used in filenames/functions (e.g. "yt", "ytm")
+# add_target DISPLAY PACKAGE APK_DIR UNINSTALL_FIRST [FALLBACK_VERSION]
 #   DISPLAY         - human-readable app name   (e.g. "YouTube", "YouTubeMusic")
 #   PACKAGE         - Android package name
 #   APK_DIR         - base-APK subdirectory     (e.g. "youtube", "youtube-music")
-#   SUFFIX          - module APK/ID suffix       (e.g. "" or "-music")
 #   UNINSTALL_FIRST - "true" if old install must be removed first
 #   FALLBACK_VERSION- pinned version when patch query returns nothing (optional)
 add_target() {
-    local short=$1 display=$2 pkg=$3 apk_dir=$4 suffix=$5 uninstall=$6 fallback=${7:-}
+    local display=$1 pkg=$2 apk_dir=$3 uninstall=$4 fallback=${5:-}
     local i=${#T_PACKAGE[@]}
     local label="Revanced${display/YouTube/YT}"    # e.g. "YouTubeMusic" → "RevancedYTMusic"
     T_PACKAGE[$i]="$pkg"
     T_APK_DIR[$i]="$apk_dir"
-    T_MODULE_APK[$i]="revanced${suffix}.apk"
-    T_MODULE_ID[$i]="revanced${suffix}"
+    T_MODULE_ID[$i]="revanced-${apk_dir}"
     T_DISPLAY_NAME[$i]="$display"
     T_MODULE_NAME[$i]="${display} Revanced"
     T_LABEL[$i]="$label"
     T_MODULE_DESC[$i]="${label} Module by @Shekhawat2"
-    T_UPDATE_FILE[$i]="${short}update.json"
-    T_UPDATE_JSON[$i]="https://github.com/shekhawat2/RevancedYT/releases/latest/download/${short}update.json"
+    T_UPDATE_FILE[$i]="${apk_dir}update.json"
+    T_UPDATE_JSON[$i]="https://github.com/shekhawat2/RevancedYT/releases/latest/download/${apk_dir}update.json"
     T_UNINSTALL_FIRST[$i]="$uninstall"
     T_FALLBACK_VERSION[$i]="$fallback"
-    T_MODULE_PATH[$i]="$MODULEBUILDROOT/${short}"
+    T_MODULE_PATH[$i]="$MODULEBUILDROOT/${apk_dir}"
     T_VERSION[$i]="" T_VERSIONCODE[$i]="" T_NAME[$i]=""
 }
 
 # ---------------------------------------------------------------------------
 # Target definitions – add a new add_target line here to support another app.
 # ---------------------------------------------------------------------------
-add_target "yt"  "YouTube"      "com.google.android.youtube"                "youtube"       ""       "false"
-add_target "ytm" "YouTubeMusic" "com.google.android.apps.youtube.music"     "youtube-music" "-music" "true"  "8.46.53"
+add_target "YouTube"      "com.google.android.youtube"                "youtube"       "false"
+add_target "YouTubeMusic" "com.google.android.apps.youtube.music"     "youtube-music" "true"  "8.46.53"
 # ---------------------------------------------------------------------------
 
 source "$CURDIR/revanced-common.sh"
@@ -74,11 +64,11 @@ patch_main_apks() {
     for i in "${!T_PACKAGE[@]}"; do
         (
             patch_apk_with_args \
-                "${T_MODULE_PATH[$i]}/${T_MODULE_APK[$i]}" \
+                "${T_MODULE_PATH[$i]}/${T_MODULE_ID[$i]}.apk" \
                 "${T_MODULE_PATH[$i]}/${T_APK_DIR[$i]}/base.apk" \
                 -d "GmsCore support"
             # Strip native libs from the root module APK (keeps size small).
-            zip -d "${T_MODULE_PATH[$i]}/${T_MODULE_APK[$i]}" 'lib/*' >> "$LOGFILE" 2>&1 || true
+            zip -d "${T_MODULE_PATH[$i]}/${T_MODULE_ID[$i]}.apk" 'lib/*' >> "$LOGFILE" 2>&1 || true
         ) &
         pids+=("$!"); labels+=("Patching ${T_MODULE_NAME[$i]}")
     done
@@ -93,11 +83,10 @@ create_noroot_apks() {
     local pids=() labels=()
     for i in "${!T_PACKAGE[@]}"; do
         (
-            local base="${T_MODULE_PATH[$i]}/${T_APK_DIR[$i]}/base.apk"
-            zip -d "$base" 'lib/x86/*' 'lib/x86_64/*' >> "$LOGFILE" 2>&1 || true
+            zip -d "${T_MODULE_PATH[$i]}/${T_APK_DIR[$i]}/base.apk" 'lib/x86/*' 'lib/x86_64/*' >> "$LOGFILE" 2>&1 || true
             patch_apk_with_args \
                 "$CURDIR/${T_NAME[$i]}-noroot.apk" \
-                "$base" \
+                "${T_MODULE_PATH[$i]}/${T_APK_DIR[$i]}/base.apk" \
                 -e "GmsCore support"
         ) &
         pids+=("$!"); labels+=("Creating ${T_MODULE_NAME[$i]} NoRoot APK")

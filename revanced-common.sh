@@ -151,71 +151,11 @@ req() {
     return 1
 }
 
-resolve_apkmirror_download_url_from_search() {
-    local package_name=$1
-    local app_slug=$2
-    local version=$3
-    local version_dash search_url search_html
-    local release_path release_url release_html
-    local variant_path dl_key_path dl_key_url
-    local final_path final_url
-
-    version_dash=${version//./-}
-
-    search_url="${APKMIRROR_BASE_URL}/?post_type=app_release&searchtype=apk&s=${package_name//./+}+${version}"
-    search_html=$(req "$search_url" - 2>/dev/null || true)
-    release_path=$(printf '%s' "$search_html" | grep -oE "/apk/google-inc/${app_slug}/${app_slug}-${version_dash}-release/" | head -1)
-
-    if [ -z "$release_path" ]; then
-        search_url="${APKMIRROR_BASE_URL}/?post_type=app_release&searchtype=apk&s=${app_slug//-/%20}+${version}"
-        search_html=$(req "$search_url" - 2>/dev/null || true)
-        release_path=$(printf '%s' "$search_html" | grep -oE "/apk/google-inc/${app_slug}/${app_slug}-${version_dash}-release/" | head -1)
-    fi
-
-    if [ -z "$release_path" ]; then
-        release_path="/apk/google-inc/${app_slug}/${app_slug}-${version_dash}-release/"
-    fi
-
-    release_url="${APKMIRROR_BASE_URL}${release_path}"
-    release_html=$(req "$release_url" - 2>/dev/null || true)
-    if [ -z "$release_html" ]; then
-        release_url="${APKMIRROR_BASE_URL}/apk/google-inc/${app_slug}/${app_slug}-${version_dash}-release/"
-        release_html=$(req "$release_url" - 2>/dev/null || true)
-    fi
-    if [ -z "$release_html" ] && [ "$app_slug" = "youtube-music" ]; then
-        release_url="${APKMIRROR_BASE_URL}/apk/google-inc/youtube/youtube-music-${version_dash}-release/"
-        release_html=$(req "$release_url" - 2>/dev/null || true)
-    fi
-
-    variant_path=$(printf '%s' "$release_html" | grep arm64 -A30 | grep '>APK<' -A20 | grep "${app_slug}" | head -1 | sed 's#.*-release/##g;s#/".*##g;s/#.*$//')
-    if [ -z "$variant_path" ]; then
-        variant_path=$(printf '%s' "$release_html" | grep Variant -A50 | grep '>APK<' -A2 | grep android-apk-download | head -1 | sed 's#.*-release/##g;s#/".*##g;s/#.*$//')
-    fi
-    if [ -z "$variant_path" ]; then
-        variant_path=$(printf '%s' "$release_html" | grep -oE "${app_slug}-${version_dash}(-[0-9]+)?-android-apk-download/" | head -1)
-    fi
-    [ -z "$variant_path" ] && return 1
-
-    dl_key_path=$(req "${release_url}${variant_path}" - | grep "downloadButton" | grep "forcebaseapk" | sed -n 's;.*href="\(.*key=[^"]*\)".*;\1;p' | head -1 | sed 's/&amp;/\&/g')
-    [ -z "$dl_key_path" ] && return 1
-    dl_key_url="${APKMIRROR_BASE_URL}${dl_key_path}"
-
-    final_path=$(req "$dl_key_url" - | grep -o 'id="download-link"[^>]*href="[^"]*"' | sed 's#.*href="##;s/"$//;s/&amp;/\&/g' | head -1)
-    if [ -z "$final_path" ]; then
-        final_path=$(req "$dl_key_url" - | grep "please click" | sed 's#.*href="\(.*key=[^"]*\)">.*#\1#;s#amp;##g' | head -1)
-    fi
-    [ -z "$final_path" ] && return 1
-
-    final_url="${APKMIRROR_BASE_URL}${final_path}"
-    printf '%s' "$final_url"
-}
-
 download_apkmirror_apk() {
     local app_name=$1
-    local package_name=$2
-    local app_slug=$3
-    local version=$4
-    local out_path=$5
+    local app_slug=$2
+    local version=$3
+    local out_path=$4
     local release_url release_html
     local variant_path dl_key_path
     local url final_path extra_path
@@ -275,11 +215,9 @@ dl_target_apk() {
     local out_path=$3
     local app_slug=${T_APK_DIR[$i]}
     local app_name=${T_DISPLAY_NAME[$i]}
-    local package_name=${T_PACKAGE[$i]}
 
     download_apkmirror_apk \
         "$app_name" \
-        "$package_name" \
         "$app_slug" \
         "$version" \
         "$out_path" || exit 1
@@ -354,15 +292,15 @@ build_tools() {
 }
 
 # Sets per-target vars from indexed arrays for target index $1.
-# Arrays T_PACKAGE, T_APK_DIR, T_MODULE_APK, T_MODULE_ID, T_MODULE_NAME,
+# Arrays T_PACKAGE, T_APK_DIR, T_MODULE_ID, T_MODULE_NAME,
 # T_MODULE_DESC, T_UPDATE_JSON, T_UNINSTALL_FIRST, T_MODULE_PATH,
 # T_VERSION, T_VERSIONCODE, T_NAME must be defined in revanced.sh.
 set_target_vars() {
     local i=$1
     PACKAGE_NAME=${T_PACKAGE[$i]}
     APK_DIR_NAME=${T_APK_DIR[$i]}
-    MODULE_APK_NAME=${T_MODULE_APK[$i]}
     MODULE_ID=${T_MODULE_ID[$i]}
+    MODULE_APK_NAME=${MODULE_ID}.apk
     MODULE_NAME=${T_MODULE_NAME[$i]}
     MODULE_DESC=${T_MODULE_DESC[$i]}
     MODULE_UPDATE_JSON=${T_UPDATE_JSON[$i]}
@@ -624,7 +562,7 @@ create_module_zips() {
             local mp=${T_MODULE_PATH[$i]}
             cd "$mp" && zip -qr9 "$CURDIR/${T_NAME[$i]}.zip" \
                 META-INF module.prop customize.sh service.sh \
-                "${T_APK_DIR[$i]}" "${T_MODULE_APK[$i]}" >> "$LOGFILE" 2>&1
+                "${T_APK_DIR[$i]}" "${T_MODULE_ID[$i]}.apk" >> "$LOGFILE" 2>&1
         ) &
         pids+=("$!"); labels+=("Creating ${T_MODULE_NAME[$i]} module ZIP")
     done
