@@ -136,30 +136,37 @@ req() {
     wget -q -O "$2" --header="$WGET_HEADER" "$1"
 }
 
-dl_yt() {
-    rm -rf "$2"
-    log "Downloading YouTube version $1..."
-    url="https://www.apkmirror.com/apk/google-inc/youtube/youtube-${1//./-}-release/"
-    url="$url$(req "$url" - | grep Variant -A50 | grep ">APK<" -A2 | grep android-apk-download | sed "s#.*-release/##g;s#/\#.*##g")"
-    url="https://www.apkmirror.com$(req "$url" - | grep "downloadButton" | grep "forcebaseapk" | sed -n 's;.*href="\(.*key=[^"]*\)".*;\1;p')"
-    url="https://www.apkmirror.com$(req "$url" - | grep "please click" | sed 's#.*href="\(.*key=[^"]*\)">.*#\1#;s#amp;##p')"
-    log "YouTube download URL: $url"
-    req "$url" "$2" >> "$LOGFILE" 2>&1 || { error "Failed to download YouTube APK"; exit 1; }
-    if [ ! -f "$2" ]; then error "YouTube APK download failed or empty"; exit 1; fi
-    success "Downloaded YouTube APK to $2"
-}
+dl_target_apk() {
+    local i=$1
+    local version=$2
+    local out_path=$3
+    local app_slug=${T_APK_DIR[$i]}
+    local app_name=${T_DISPLAY_NAME[$i]}
+    local page_html variant_path url
 
-dl_ytm() {
-    rm -rf "$2"
-    log "Downloading YouTube Music version $1..."
-    url="https://www.apkmirror.com/apk/google-inc/youtube/youtube-music-${1//./-}-release/"
-    url="$url$(req "$url" - | grep arm64 -A30 | grep '>APK<' -A20 | grep youtube-music | head -1 | sed "s#.*-release/##g;s#/\".*##g")"
+    rm -rf "$out_path"
+    log "Downloading ${app_name} version ${version}..."
+
+    url="https://www.apkmirror.com/apk/google-inc/youtube/${app_slug}-${version//./-}-release/"
+    page_html=$(req "$url" -)
+
+    if [ "$app_slug" = "youtube" ]; then
+        variant_path=$(printf '%s' "$page_html" | grep "Variant" -A50 | grep ">APK<" -A2 | grep android-apk-download | sed "s#.*-release/##g;s#/\#.*##g")
+    else
+        variant_path=$(printf '%s' "$page_html" | grep arm64 -A30 | grep '>APK<' -A20 | grep "$app_slug" | head -1 | sed "s#.*-release/##g;s#/\".*##g")
+    fi
+
+    url="$url$variant_path"
     url="https://www.apkmirror.com$(req "$url" - | grep "downloadButton" | grep "forcebaseapk" | sed -n 's;.*href="\(.*key=[^"]*\)".*;\1;p')"
     url="https://www.apkmirror.com$(req "$url" - | grep "please click" | sed 's#.*href="\(.*key=[^"]*\)">.*#\1#;s#amp;##p')"
-    log "YouTube Music download URL: $url"
-    req "$url" "$2" >> "$LOGFILE" 2>&1 || { error "Failed to download YouTube Music APK"; exit 1; }
-    if [ ! -f "$2" ]; then error "YouTube Music APK download failed or empty"; exit 1; fi
-    success "Downloaded YouTube Music APK to $2"
+
+    log "${app_name} download URL: $url"
+    req "$url" "$out_path" >> "$LOGFILE" 2>&1 || { error "Failed to download ${app_name} APK"; exit 1; }
+    if [ ! -f "$out_path" ]; then
+        error "${app_name} APK download failed or empty"
+        exit 1
+    fi
+    success "Downloaded ${app_name} APK to $out_path"
 }
 
 clone_tools() {
@@ -417,7 +424,7 @@ download_base_apks() {
     for i in "${!T_PACKAGE[@]}"; do
         local ver=${T_VERSION[$i]}
         local dest="$CURDIR/.module-build/${T_APK_DIR[$i]}-download.apk"
-        ${T_DOWNLOAD_FN[$i]} "$ver" "$dest" &
+        dl_target_apk "$i" "$ver" "$dest" &
         pids+=("$!"); labels+=("Downloading ${T_MODULE_NAME[$i]} APK")
     done
     local job_args=()

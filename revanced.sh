@@ -26,7 +26,7 @@ FAST_BUILD=${FAST_BUILD:-false}
 # Per-target arrays – populated by add_target() below.
 T_PACKAGE=() T_APK_DIR=() T_MODULE_APK=() T_MODULE_ID=() T_MODULE_NAME=()
 T_MODULE_DESC=() T_UPDATE_JSON=() T_UPDATE_FILE=() T_UNINSTALL_FIRST=()
-T_LABEL=() T_DOWNLOAD_FN=() T_FALLBACK_VERSION=()
+T_LABEL=() T_DISPLAY_NAME=() T_FALLBACK_VERSION=()
 T_VERSION=() T_VERSIONCODE=() T_NAME=() T_MODULE_PATH=()
 
 # add_target SHORT DISPLAY PACKAGE APK_DIR SUFFIX UNINSTALL_FIRST [FALLBACK_VERSION]
@@ -45,13 +45,13 @@ add_target() {
     T_APK_DIR[$i]="$apk_dir"
     T_MODULE_APK[$i]="revanced${suffix}.apk"
     T_MODULE_ID[$i]="revanced${suffix}"
+    T_DISPLAY_NAME[$i]="$display"
     T_MODULE_NAME[$i]="${display} Revanced"
     T_LABEL[$i]="$label"
     T_MODULE_DESC[$i]="${label} Module by @Shekhawat2"
     T_UPDATE_FILE[$i]="${short}update.json"
     T_UPDATE_JSON[$i]="https://github.com/shekhawat2/RevancedYT/releases/latest/download/${short}update.json"
     T_UNINSTALL_FIRST[$i]="$uninstall"
-    T_DOWNLOAD_FN[$i]="dl_${short}"
     T_FALLBACK_VERSION[$i]="$fallback"
     T_MODULE_PATH[$i]="$MODULEBUILDROOT/${short}"
     T_VERSION[$i]="" T_VERSIONCODE[$i]="" T_NAME[$i]=""
