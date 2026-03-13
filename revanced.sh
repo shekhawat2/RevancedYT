@@ -22,6 +22,7 @@ APKMIRROR_BASE_URL=${APKMIRROR_BASE_URL:-https://www.apkmirror.com}
 T_PACKAGE=() T_APK_DIR=() T_MODULE_ID=() T_MODULE_NAME=()
 T_MODULE_DESC=() T_UPDATE_JSON=() T_UPDATE_FILE=() T_UNINSTALL_FIRST=()
 T_LABEL=() T_DISPLAY_NAME=() T_FALLBACK_VERSION=()
+T_RESOLVED_VERSION=() T_FALLBACK_PREFERRED=()
 T_VERSION=() T_VERSIONCODE=() T_NAME=() T_MODULE_PATH=()
 
 # add_target DISPLAY PACKAGE APK_DIR UNINSTALL_FIRST [FALLBACK_VERSION]
@@ -29,7 +30,7 @@ T_VERSION=() T_VERSIONCODE=() T_NAME=() T_MODULE_PATH=()
 #   PACKAGE         - Android package name
 #   APK_DIR         - base-APK subdirectory     (e.g. "youtube", "youtube-music")
 #   UNINSTALL_FIRST - "true" if old install must be removed first
-#   FALLBACK_VERSION- pinned version when patch query returns nothing (optional)
+#   FALLBACK_VERSION- preferred fallback version (used if higher than resolved)
 add_target() {
     local display=$1 pkg=$2 apk_dir=$3 uninstall=$4 fallback=${5:-}
     local i=${#T_PACKAGE[@]}
@@ -45,6 +46,8 @@ add_target() {
     T_UPDATE_JSON[$i]="https://github.com/shekhawat2/RevancedYT/releases/latest/download/${apk_dir}update.json"
     T_UNINSTALL_FIRST[$i]="$uninstall"
     T_FALLBACK_VERSION[$i]="$fallback"
+    T_RESOLVED_VERSION[$i]=""
+    T_FALLBACK_PREFERRED[$i]="false"
     T_MODULE_PATH[$i]="$MODULEBUILDROOT/${apk_dir}"
     T_VERSION[$i]="" T_VERSIONCODE[$i]="" T_NAME[$i]=""
 }
@@ -52,30 +55,40 @@ add_target() {
 # ---------------------------------------------------------------------------
 # Target definitions – add a new add_target line here to support another app.
 # ---------------------------------------------------------------------------
-add_target "YouTube"      "com.google.android.youtube"                "youtube"       "false"
+add_target "YouTube"      "com.google.android.youtube"                "youtube"       "false" "20.40.45"
 add_target "YouTubeMusic" "com.google.android.apps.youtube.music"     "youtube-music" "true"  "8.46.53"
 # ---------------------------------------------------------------------------
 
 source "$CURDIR/revanced-common.sh"
 
 patch_main_apks() {
-    status "Patching apps in parallel. This is one of the longest steps..."
-    local pids=() labels=()
+    status "Patching apps..."
     for i in "${!T_PACKAGE[@]}"; do
-        (
-            patch_apk_with_args \
-                "${T_MODULE_PATH[$i]}/${T_MODULE_ID[$i]}.apk" \
-                "${T_MODULE_PATH[$i]}/${T_APK_DIR[$i]}/base.apk" \
-                -d "GmsCore support"
-            # Strip native libs from the root module APK (keeps size small).
-            zip -d "${T_MODULE_PATH[$i]}/${T_MODULE_ID[$i]}.apk" 'lib/*' >> "$LOGFILE" 2>&1 || true
-        ) &
-        pids+=("$!"); labels+=("Patching ${T_MODULE_NAME[$i]}")
+        local output_apk="${T_MODULE_PATH[$i]}/${T_MODULE_ID[$i]}.apk"
+        local input_apk="${T_MODULE_PATH[$i]}/${T_APK_DIR[$i]}/base.apk"
+
+        if patch_apk_with_args "$output_apk" "$input_apk" -d "GmsCore support"; then
+            zip -d "$output_apk" 'lib/*' >> "$LOGFILE" 2>&1 || true
+            success "${T_MODULE_NAME[$i]} patched successfully"
+            continue
+        fi
+
+        if [ "${T_FALLBACK_PREFERRED[$i]:-false}" = "true" ] && [ -n "${T_RESOLVED_VERSION[$i]:-}" ] && [ "${T_VERSION[$i]}" != "${T_RESOLVED_VERSION[$i]}" ]; then
+            warn "${T_MODULE_NAME[$i]} failed with preferred fallback ${T_VERSION[$i]}; retrying with resolved ${T_RESOLVED_VERSION[$i]}"
+            T_VERSION[$i]="${T_RESOLVED_VERSION[$i]}"
+            download_target_base_apk "$i" "${T_VERSION[$i]}"
+            rm -f "$output_apk"
+
+            if patch_apk_with_args "$output_apk" "$input_apk" -d "GmsCore support"; then
+                zip -d "$output_apk" 'lib/*' >> "$LOGFILE" 2>&1 || true
+                success "${T_MODULE_NAME[$i]} patched successfully with resolved version ${T_VERSION[$i]}"
+                continue
+            fi
+        fi
+
+        error "Failed to patch ${T_MODULE_NAME[$i]}"
+        exit 1
     done
-    local job_args=()
-    for j in "${!pids[@]}"; do job_args+=("${labels[$j]}" "${pids[$j]}"); done
-    wait_for_jobs "${job_args[@]}"
-    for i in "${!T_PACKAGE[@]}"; do success "${T_MODULE_NAME[$i]} patched successfully"; done
 }
 
 create_noroot_apks() {
@@ -100,6 +113,7 @@ create_noroot_apks() {
 trap cleanup_on_exit EXIT
 
 # Initialize logging
+rm -f "$LOGFILE"
 echo "========================================" > "$LOGFILE"
 echo "ReVanced Build Script - $(date)" >> "$LOGFILE"
 echo "========================================" >> "$LOGFILE"
@@ -125,9 +139,9 @@ prepare_workspace
 
 resolve_supported_versions
 download_base_apks
+patch_main_apks
 prepare_release_meta
 create_release_if_needed
-patch_main_apks
 create_module_zips
 create_noroot_apks
 generate_update_json_files

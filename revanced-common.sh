@@ -247,6 +247,30 @@ dl_target_apk() {
         "$out_path" || exit 1
 }
 
+download_target_base_apk() {
+    local i=$1
+    local version=$2
+    local dest="$CURDIR/.module-build/${T_APK_DIR[$i]}-download.apk"
+    local apk_dir="${T_MODULE_PATH[$i]}/${T_APK_DIR[$i]}"
+
+    status "Downloading ${T_MODULE_NAME[$i]} APK"
+    dl_target_apk "$i" "$version" "$dest"
+
+    if unzip -l -q "$dest" | grep -q apk; then
+        log "Extracting ${T_MODULE_NAME[$i]} APK from bundle..."
+        unzip -j -q "$dest" '*.apk' -d "$apk_dir" || { error "Failed to extract ${T_MODULE_NAME[$i]} APK"; exit 1; }
+        rm -f "$dest"
+    else
+        mv "$dest" "$apk_dir/base.apk"
+    fi
+}
+
+version_is_higher() {
+    local a=$1
+    local b=$2
+    [ "$a" != "$b" ] && [ "$(printf '%s\n%s\n' "$a" "$b" | sort -V | tail -1)" = "$a" ]
+}
+
 # download_targets_parallel <versions_array_name> <output_paths_array_name> [job_label_prefix]
 download_targets_parallel() {
     local versions_name=$1
@@ -520,8 +544,13 @@ resolve_supported_versions() {
     status "Resolving compatible app versions from patches..."
     for i in "${!T_PACKAGE[@]}"; do
         local pkg=${T_PACKAGE[$i]}
-        local ver
-        ver=$(java -jar "$CLI" list-patches -ipv -f "$pkg" "$PATCHES" 2>>"$LOGFILE" | \
+        local resolved_ver fallback_ver ver
+        resolved_ver=$(java -jar "$CLI" list-patches \
+            -p "$PATCHES" \
+            -b \
+            --filter-package-name="$pkg" \
+            --packages \
+            --versions 2>>"$LOGFILE" | \
             awk '
                 /Compatible versions:/ { in_block=1; next }
                 in_block && /^[[:space:]]*$/ { in_block=0 }
@@ -529,14 +558,32 @@ resolve_supported_versions() {
                     gsub(/^[[:space:]]+/, "", $0)
                     if ($0 ~ /^[0-9]+(\.[0-9]+)+$/) print
                 }
-            ' | sort -r | head -1)
-        if [ -z "$ver" ] && [ -n "${T_FALLBACK_VERSION[$i]:-}" ]; then
-            ver=${T_FALLBACK_VERSION[$i]}
+            ' | sort -uV | tail -1)
+
+        T_RESOLVED_VERSION[$i]="$resolved_ver"
+        T_FALLBACK_PREFERRED[$i]="false"
+        fallback_ver=${T_FALLBACK_VERSION[$i]:-}
+        ver=$resolved_ver
+
+        if [ -n "$fallback_ver" ]; then
+            if [ -z "$resolved_ver" ]; then
+                ver=$fallback_ver
+            elif version_is_higher "$fallback_ver" "$resolved_ver"; then
+                ver=$fallback_ver
+                T_FALLBACK_PREFERRED[$i]="true"
+                warn "Preferring fallback ${fallback_ver} over resolved ${resolved_ver} for ${T_MODULE_NAME[$i]}"
+            fi
         fi
+
         if [ -z "$ver" ]; then
             error "Failed to resolve compatible version for ${T_MODULE_NAME[$i]} (${pkg})"
             exit 1
         fi
+
+        if [ -z "${T_RESOLVED_VERSION[$i]}" ]; then
+            T_RESOLVED_VERSION[$i]="$ver"
+        fi
+
         T_VERSION[$i]=$ver
         success "Using ${T_MODULE_NAME[$i]} version: $ver"
     done
@@ -612,15 +659,53 @@ patch_apk_with_args() {
     local input_apk=$2
     shift 2
 
+    local patch_output failure_lines patch_status monitor_status
+    local -a pipeline_status
+    local monitor_index
+    patch_output=$(mktemp)
+
     java -jar "$CLI" patch --purge \
         -o "$output_apk" \
         --keystore="$CURDIR/revanced.keystore" \
         --keystore-password="$KEYSTORE_PASSWORD" \
         --keystore-entry-alias=shekhawat2 \
         -p "$PATCHES" \
+        -b \
         --force \
         "$@" \
-        "$input_apk" >> "$LOGFILE" 2>&1
+        "$input_apk" 2>&1 | tee "$patch_output" | tee -a "$LOGFILE" | awk '
+            BEGIN { IGNORECASE=1; found=0 }
+            /failed to apply|patch .* failed|(^|[^[:alpha:]])error([^[:alpha:]]|$)|exception|incompatible|abort|could not|not found/ {
+                print
+                fflush()
+                found=1
+            }
+            END { exit(found ? 42 : 0) }
+        '
+
+    pipeline_status=("${PIPESTATUS[@]}")
+    patch_status=${pipeline_status[0]:-1}
+    monitor_index=$((${#pipeline_status[@]} - 1))
+    monitor_status=${pipeline_status[$monitor_index]:-1}
+
+    if [ "$patch_status" -eq 0 ] && [ "$monitor_status" -eq 0 ]; then
+        rm -f "$patch_output"
+        return 0
+    fi
+
+    error "Patching failed for $(basename "$input_apk"). Showing relevant patch errors:"
+
+    failure_lines=$(grep -Ei 'failed to apply|patch .* failed|\berror\b|\bexception\b|incompatible|abort|could not|not found' "$patch_output" | tail -n 60 || true)
+
+    if [ -n "$failure_lines" ]; then
+        printf '%s\n' "$failure_lines" | tee -a "$LOGFILE"
+    else
+        warn "No explicit failed patch lines detected; showing the last 80 lines of patch output."
+        tail -n 80 "$patch_output" | tee -a "$LOGFILE"
+    fi
+
+    rm -f "$patch_output"
+    return 1
 }
 
 create_module_zips() {
