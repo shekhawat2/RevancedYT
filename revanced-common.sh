@@ -409,7 +409,16 @@ generate_message() {
     echo "revanced-patches: $PATCHESVER" >>"$CURDIR/changelog.md"
     echo "revanced-cli: $CLIVER" >>"$CURDIR/changelog.md"
     echo "" >>"$CURDIR/changelog.md"
-    echo "$(cat "$CURDIR/message")" >>"$CURDIR/changelog.md"
+    cat >>"$CURDIR/changelog.md" <<'EOF'
+**Root Version:**
+ • Install in Magisk.
+ • No need to reboot after flashing.
+ • Disable Auto Update For Youtube in PS.
+
+**NoRoot Version:**
+ • **RevancedMicroG** is needed for NoRoot Version.
+ • Get it from [HERE](https://github.com/ReVanced/GmsCore/releases/latest)
+EOF
     sed -i 's/$/\\/g' "$CURDIR/changelog.md"
 }
 
