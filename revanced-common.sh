@@ -261,9 +261,9 @@ download_targets_parallel() {
 
 clone_tools() {
     status "Preparing ReVanced tools..."
-    clone revanced-patches main revanced-patches &
+    clone revanced-patches dev revanced-patches &
     patches_clone_pid=$!
-    clone revanced-cli main revanced-cli &
+    clone revanced-cli dev revanced-cli &
     cli_clone_pid=$!
     wait_for_jobs "Updating revanced-patches" "$patches_clone_pid" "Updating revanced-cli" "$cli_clone_pid"
     PATCHESVER=$(grep version "$CURDIR/revanced-patches/gradle.properties" | cut -d = -f 2 | sed 's/^[[:space:]]*//g')

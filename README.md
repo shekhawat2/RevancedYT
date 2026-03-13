@@ -48,7 +48,7 @@ Useful toggles:
 
 ## Notes
 
-- ReVanced tools are fetched from upstream and built from source during the run.
+- ReVanced tools are fetched from the upstream `dev` branches and built from source during the run.
 - Logs are written to `.yt_build.log`.
 - On failure, the script prints the tail of the build log automatically.
 
