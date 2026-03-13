@@ -636,11 +636,21 @@ create_module_zips() {
 
 generate_update_json_files() {
     status "Generating update JSON files..."
+    local release_base_url
+    release_base_url="https://github.com/shekhawat2/RevancedYT/releases/latest/download"
+
     for i in "${!T_PACKAGE[@]}"; do
-        sed "/\"version\"/s/: .*/: \"${T_VERSION[$i]}\",/g; \
-            /\"versionCode\"/s/: .*/: ${T_VERSIONCODE[$i]},/g; \
-            /\"zipUrl\"/s/REVANCEDZIP/${T_NAME[$i]}/g" \
-            "$CURDIR/update.json" >"$CURDIR/${T_UPDATE_FILE[$i]}"
+        jq -n \
+            --arg version "${T_VERSION[$i]}" \
+            --arg zip_url "${release_base_url}/${T_NAME[$i]}.zip" \
+            --arg changelog "${release_base_url}/changelog.md" \
+            --argjson version_code "${T_VERSIONCODE[$i]}" \
+            '{
+                versionCode: $version_code,
+                version: $version,
+                zipUrl: $zip_url,
+                changelog: $changelog
+            }' >"$CURDIR/${T_UPDATE_FILE[$i]}"
     done
     success "Update JSON files generated"
 }
