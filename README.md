@@ -23,7 +23,7 @@ Run release flow:
 ./revanced.sh
 ```
 
-Run test flow (no upload by default):
+Run test flow (creates a draft release):
 
 ```bash
 ./revanced.sh test
@@ -38,7 +38,8 @@ Useful toggles:
 - Test workflow: `.github/workflows/test.yml`
 	- runs `./revanced.sh test`
 	- uses Gradle cache
-	- sets `SKIP_UPLOAD=true` and `FAST_BUILD=true`
+	- creates a draft GitHub release
+	- sets `FAST_BUILD=true`
 
 - Release workflow: `.github/workflows/revanced.yml`
 	- runs `./revanced.sh`

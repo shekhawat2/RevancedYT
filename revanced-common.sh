@@ -428,15 +428,42 @@ generate_release_data() {
 EOF
 }
 
+RELEASE_CREATE_HTTP_CODE=
+
 create_release() {
     local release_num=$1
     local url=https://api.github.com/repos/shekhawat2/RevancedYT/releases
-    curl -s \
+    local response_file response_body upload_url message
+
+    response_file=$(mktemp)
+    RELEASE_CREATE_HTTP_CODE=$(curl -sS -o "$response_file" -w '%{http_code}' \
         -X POST \
         -H 'Accept: application/vnd.github+json' \
         -H "Authorization: token ${GITHUB_TOKEN}" \
         "$url" \
-        -d "$(generate_release_data ${release_num})" | jq -r .upload_url | cut -d '{' -f1
+        -d "$(generate_release_data ${release_num})")
+    response_body=$(cat "$response_file")
+    rm -f "$response_file"
+
+    if [ "$RELEASE_CREATE_HTTP_CODE" != "201" ]; then
+        message=$(printf '%s' "$response_body" | jq -r '.message // empty')
+        if [ -n "$message" ]; then
+            error "GitHub release creation failed with HTTP $RELEASE_CREATE_HTTP_CODE: $message"
+        else
+            error "GitHub release creation failed with HTTP $RELEASE_CREATE_HTTP_CODE"
+        fi
+        printf '%s\n' "$response_body" >> "$LOGFILE"
+        return 1
+    fi
+
+    upload_url=$(printf '%s' "$response_body" | jq -r '.upload_url // empty' | cut -d '{' -f1)
+    if [ -z "$upload_url" ]; then
+        error "GitHub release creation succeeded but upload_url was missing from the response"
+        printf '%s\n' "$response_body" >> "$LOGFILE"
+        return 1
+    fi
+
+    printf '%s\n' "$upload_url"
 }
 
 upload_release_file() {
@@ -544,14 +571,22 @@ create_release_if_needed() {
                 T_VERSIONCODE[$i]="${DATE}${N}"
             done
             generate_message
-            upload_url=$(create_release "$N")
-            if (grep 'https' <<<"$upload_url"); then
+            if upload_url=$(create_release "$N"); then
                 success "Created release ${T_NAME[0]}"
                 break
-            else
-                status "Retrying release creation (attempt $N/9)..."
-                continue
             fi
+
+            if [ "$RELEASE_CREATE_HTTP_CODE" = "401" ] || [ "$RELEASE_CREATE_HTTP_CODE" = "403" ]; then
+                error "Release creation is not authorized. Ensure the workflow grants contents: write to GITHUB_TOKEN."
+                exit 1
+            fi
+
+            if [ "$N" -eq 9 ]; then
+                error "Failed to create GitHub release after 9 attempts"
+                exit 1
+            fi
+
+            status "Retrying release creation (attempt $((N + 1))/9)..."
         done
     else
         warn "GITHUB_TOKEN is not set. Skipping release creation/upload."
