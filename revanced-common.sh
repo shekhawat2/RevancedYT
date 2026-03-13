@@ -410,14 +410,14 @@ generate_message() {
     echo "revanced-cli: $CLIVER" >>"$CURDIR/changelog.md"
     echo "" >>"$CURDIR/changelog.md"
     cat >>"$CURDIR/changelog.md" <<'EOF'
-**Root Version:**
- • Install in Magisk.
- • No need to reboot after flashing.
- • Disable Auto Update For Youtube in PS.
+**Root Build:**
+ • Flash in Magisk.
+ • No reboot is required after installation.
+ • Disable YouTube auto-updates in the Play Store.
 
-**NoRoot Version:**
- • **RevancedMicroG** is needed for NoRoot Version.
- • Get it from [HERE](https://github.com/ReVanced/GmsCore/releases/latest)
+**No-root Build:**
+ • Requires **ReVanced MicroG**.
+ • Download it from [HERE](https://github.com/ReVanced/GmsCore/releases/latest).
 EOF
     sed -i 's/$/\\/g' "$CURDIR/changelog.md"
 }
