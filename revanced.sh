@@ -13,7 +13,7 @@ if [ "$MODE" = "test" ]; then
     IS_TEST=true
 fi
 DRAFT=$IS_TEST
-SKIP_UPLOAD=${SKIP_UPLOAD:-$IS_TEST}
+SKIP_UPLOAD=${SKIP_UPLOAD:-false}
 FAST_BUILD=${FAST_BUILD:-false}
 APKMIRROR_BASE_URL=${APKMIRROR_BASE_URL:-https://www.apkmirror.com}
 
