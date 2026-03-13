@@ -122,9 +122,11 @@ clone() {
     log "Cloning $1 (branch: $2) into $3"
     URL=https://github.com/revanced
     if [ -d "$CURDIR/$3/.git" ]; then
+        git -C "$CURDIR/$3" reset --hard HEAD >> "$LOGFILE" 2>&1 || { error "Failed to reset local changes in $1"; exit 1; }
+        git -C "$CURDIR/$3" clean -fd >> "$LOGFILE" 2>&1 || { error "Failed to clean local changes in $1"; exit 1; }
         git -C "$CURDIR/$3" fetch --depth=1 origin "$2" >> "$LOGFILE" 2>&1 || { error "Failed to fetch $1"; exit 1; }
-        git -C "$CURDIR/$3" checkout -q "$2" >> "$LOGFILE" 2>&1 || { error "Failed to checkout $1:$2"; exit 1; }
-        git -C "$CURDIR/$3" reset --hard "origin/$2" >> "$LOGFILE" 2>&1 || { error "Failed to reset $1 to origin/$2"; exit 1; }
+        git -C "$CURDIR/$3" checkout -B "$2" FETCH_HEAD >> "$LOGFILE" 2>&1 || { error "Failed to checkout $1:$2"; exit 1; }
+        git -C "$CURDIR/$3" reset --hard FETCH_HEAD >> "$LOGFILE" 2>&1 || { error "Failed to reset $1 to fetched $2"; exit 1; }
         success "Updated $1"
     else
         git clone --depth=1 "$URL/$1" -b "$2" "$CURDIR/$3" >> "$LOGFILE" 2>&1 || { error "Failed to clone $1"; exit 1; }
