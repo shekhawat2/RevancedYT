@@ -411,21 +411,24 @@ generate_message() {
     echo "" >>"$CURDIR/changelog.md"
     echo "$(cat "$CURDIR/message")" >>"$CURDIR/changelog.md"
     sed -i 's/$/\\/g' "$CURDIR/changelog.md"
-    MSG=$(sed 's/$/n/g' "$CURDIR/changelog.md")
 }
 
 generate_release_data() {
-    cat <<EOF
-{
-"tag_name":"${DATE}_v${1}",
-"target_commitish":"master",
-"name":"RevancedYT-${DATE}-v${1}",
-"body":"$MSG",
-"draft":${DRAFT},
-"prerelease":false,
-"generate_release_notes":false
-}
-EOF
+    jq -n \
+        --arg tag_name "${DATE}_v${1}" \
+        --arg target_commitish "master" \
+        --arg name "RevancedYT-${DATE}-v${1}" \
+        --rawfile body "$CURDIR/changelog.md" \
+        --argjson draft "$DRAFT" \
+        '{
+            tag_name: $tag_name,
+            target_commitish: $target_commitish,
+            name: $name,
+            body: $body,
+            draft: $draft,
+            prerelease: false,
+            generate_release_notes: false
+        }'
 }
 
 RELEASE_CREATE_HTTP_CODE=
