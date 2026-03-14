@@ -13,6 +13,12 @@ if [ "$MODE" = "test" ]; then
     IS_TEST=true
 fi
 DRAFT=$IS_TEST
+RELEASE_SERIES=$DATE
+RELEASE_TITLE_BASE="Revanced"
+if [ "$IS_TEST" = "true" ]; then
+    RELEASE_SERIES="test_${DATE}"
+    RELEASE_TITLE_BASE="Revanced Test"
+fi
 SKIP_UPLOAD=${SKIP_UPLOAD:-false}
 FAST_BUILD=${FAST_BUILD:-false}
 APKMIRROR_BASE_URL=${APKMIRROR_BASE_URL:-https://www.apkmirror.com}

@@ -429,7 +429,7 @@ EOF
 }
 
 generate_message() {
-    echo "**RevancedYT-$DATE-$N**" >"$CURDIR/changelog.md"
+    echo "**${RELEASE_TITLE_BASE}-${RELEASE_SERIES}-v${N}**" >"$CURDIR/changelog.md"
     echo "" >>"$CURDIR/changelog.md"
     echo "**Tools:**" >>"$CURDIR/changelog.md"
     echo "revanced-patches: $PATCHESVER" >>"$CURDIR/changelog.md"
@@ -450,9 +450,9 @@ EOF
 
 generate_release_data() {
     jq -n \
-        --arg tag_name "${DATE}_v${1}" \
+        --arg tag_name "${RELEASE_SERIES}_v${1}" \
         --arg target_commitish "master" \
-        --arg name "RevancedYT-${DATE}-v${1}" \
+        --arg name "${RELEASE_TITLE_BASE}-${RELEASE_SERIES}-v${1}" \
         --rawfile body "$CURDIR/changelog.md" \
         --argjson draft "$DRAFT" \
         '{
@@ -616,7 +616,7 @@ download_base_apks() {
 prepare_release_meta() {
     N=1
     for i in "${!T_PACKAGE[@]}"; do
-        T_NAME[$i]="${T_LABEL[$i]}_${T_VERSION[$i]}_${DATE}_v${N}"
+        T_NAME[$i]="${T_LABEL[$i]}_${T_VERSION[$i]}_${RELEASE_SERIES}_v${N}"
         T_VERSIONCODE[$i]="${DATE}${N}"
     done
 }
@@ -628,7 +628,7 @@ create_release_if_needed() {
         status "Creating GitHub release..."
         for N in {1..9}; do
             for i in "${!T_PACKAGE[@]}"; do
-                T_NAME[$i]="${T_LABEL[$i]}_${T_VERSION[$i]}_${DATE}_v${N}"
+                T_NAME[$i]="${T_LABEL[$i]}_${T_VERSION[$i]}_${RELEASE_SERIES}_v${N}"
                 T_VERSIONCODE[$i]="${DATE}${N}"
             done
             generate_message

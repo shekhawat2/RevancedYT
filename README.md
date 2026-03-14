@@ -39,6 +39,7 @@ Useful toggles:
 	- runs `./revanced.sh test`
 	- uses Gradle cache
 	- creates a draft GitHub release
+	- uses `test_YYMMDD_vN` tags so draft runs do not collide with release tags
 	- sets `FAST_BUILD=true`
 
 - Release workflow: `.github/workflows/revanced.yml`
