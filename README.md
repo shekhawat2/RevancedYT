@@ -46,6 +46,7 @@ Useful toggles:
 	- runs `./revanced.sh`
 	- scheduled with cron `30 0 * * 1,5` (UTC)
 	- uses Gradle cache
+	- sets `FAST_BUILD=true`
 
 ## Notes
 
