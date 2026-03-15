@@ -72,24 +72,32 @@ patch_main_apks() {
     for i in "${!T_PACKAGE[@]}"; do
         local output_apk="${T_MODULE_PATH[$i]}/${T_MODULE_ID[$i]}.apk"
         local input_apk="${T_MODULE_PATH[$i]}/${T_APK_DIR[$i]}/base.apk"
+        local patch_success=false
+        local success_msg=""
 
         if patch_apk_with_args "$output_apk" "$input_apk" -d "GmsCore support"; then
-            zip -d "$output_apk" 'lib/*' >> "$LOGFILE" 2>&1 || true
-            success "${T_MODULE_NAME[$i]} patched successfully"
-            continue
+            patch_success=true
+            success_msg="${T_MODULE_NAME[$i]} patched successfully"
         fi
 
-        if [ "${T_FALLBACK_PREFERRED[$i]:-false}" = "true" ] && [ -n "${T_RESOLVED_VERSION[$i]:-}" ] && [ "${T_VERSION[$i]}" != "${T_RESOLVED_VERSION[$i]}" ]; then
+        if [ "$patch_success" = "false" ] && [ "${T_FALLBACK_PREFERRED[$i]:-false}" = "true" ] && [ -n "${T_RESOLVED_VERSION[$i]:-}" ] && [ "${T_VERSION[$i]}" != "${T_RESOLVED_VERSION[$i]}" ]; then
             warn "${T_MODULE_NAME[$i]} failed with preferred fallback ${T_VERSION[$i]}; retrying with resolved ${T_RESOLVED_VERSION[$i]}"
             T_VERSION[$i]="${T_RESOLVED_VERSION[$i]}"
             download_target_base_apk "$i" "${T_VERSION[$i]}"
             rm -f "$output_apk"
 
             if patch_apk_with_args "$output_apk" "$input_apk" -d "GmsCore support"; then
-                zip -d "$output_apk" 'lib/*' >> "$LOGFILE" 2>&1 || true
-                success "${T_MODULE_NAME[$i]} patched successfully with resolved version ${T_VERSION[$i]}"
-                continue
+                patch_success=true
+                success_msg="${T_MODULE_NAME[$i]} patched successfully with resolved version ${T_VERSION[$i]}"
             fi
+        fi
+
+        if [ "$patch_success" = "true" ]; then
+            success "$success_msg"
+            if [ "${T_APK_DIR[$i]}" != "youtube-music" ]; then
+                zip -d "$output_apk" 'lib/*' >> "$LOGFILE" 2>&1 || true
+            fi
+            continue
         fi
 
         error "Failed to patch ${T_MODULE_NAME[$i]}"
