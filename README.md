@@ -44,7 +44,7 @@ Useful toggles:
 
 - Release workflow: `.github/workflows/revanced.yml`
 	- runs `./revanced.sh`
-	- scheduled with cron `30 0 * * 1,5` (UTC)
+	- scheduled with cron `30 1 * * 1` (UTC, Monday 07:00 IST)
 	- uses Gradle cache
 	- sets `FAST_BUILD=true`
 
