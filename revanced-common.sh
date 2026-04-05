@@ -525,6 +525,48 @@ create_release() {
     printf '%s\n' "$upload_url"
 }
 
+extract_release_id_from_upload_url() {
+    local upload_api_url=$1
+    printf '%s' "$upload_api_url" | sed -n 's#.*/releases/\([0-9][0-9]*\)/assets.*#\1#p'
+}
+
+delete_release_asset_by_name() {
+    local release_id=$1
+    local asset_name=$2
+    local list_url="https://api.github.com/repos/shekhawat2/RevancedYT/releases/${release_id}/assets?per_page=100"
+    local list_file delete_code
+    local asset_ids=()
+
+    list_file=$(mktemp)
+    if ! curl -sS -o "$list_file" -H 'Accept: application/vnd.github+json' -H "Authorization: token ${GITHUB_TOKEN}" "$list_url"; then
+        rm -f "$list_file"
+        warn "Failed to query release assets before retrying upload for ${asset_name}"
+        return 1
+    fi
+
+    mapfile -t asset_ids < <(jq -r --arg name "$asset_name" '.[] | select(.name == $name) | .id' "$list_file" 2>/dev/null || true)
+    rm -f "$list_file"
+
+    if [ "${#asset_ids[@]}" -eq 0 ]; then
+        return 0
+    fi
+
+    for asset_id in "${asset_ids[@]}"; do
+        [ -z "$asset_id" ] && continue
+        delete_code=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -X DELETE \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            "https://api.github.com/repos/shekhawat2/RevancedYT/releases/assets/${asset_id}")
+        if [ "$delete_code" = "204" ]; then
+            log "Deleted existing asset ${asset_name} (id: ${asset_id}) before retry"
+        else
+            warn "Failed to delete existing asset ${asset_name} (id: ${asset_id}), HTTP ${delete_code}"
+            return 1
+        fi
+    done
+}
+
 upload_release_file() {
     asset_path=$1
     if [ ! -f "$asset_path" ]; then
@@ -532,20 +574,41 @@ upload_release_file() {
         exit 1
     fi
 
-    log "Uploading $(basename "$asset_path")..."
+    local asset_name content_type http_code curl_status
+    local release_id retry max_retries
+    asset_name=$(basename "$asset_path")
     content_type=$(file -b --mime-type "$asset_path")
-    http_code=$(curl -s -o /dev/null -w '%{http_code}' \
-        -H "Authorization: token ${GITHUB_TOKEN}" \
-        -H "Content-Type: ${content_type}" \
-        --data-binary @"$asset_path" \
-        "${upload_url}?name=$(basename "$asset_path")")
+    release_id=$(extract_release_id_from_upload_url "$upload_url")
+    max_retries=3
 
-    if [ "$http_code" = "201" ]; then
-        success "Uploaded $(basename "$asset_path")"
-    else
-        error "Upload of $(basename "$asset_path") failed with HTTP code $http_code"
-        exit 1
-    fi
+    for retry in $(seq 1 "$max_retries"); do
+        log "Uploading ${asset_name} (attempt ${retry}/${max_retries})..."
+
+        set +e
+        http_code=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            -H "Content-Type: ${content_type}" \
+            --data-binary @"$asset_path" \
+            "${upload_url}?name=${asset_name}")
+        curl_status=$?
+        set -e
+
+        if [ "$curl_status" -eq 0 ] && [ "$http_code" = "201" ]; then
+            success "Uploaded ${asset_name}"
+            return 0
+        fi
+
+        warn "Upload attempt ${retry}/${max_retries} failed for ${asset_name} (curl=${curl_status}, http=${http_code})"
+
+        if [ -n "$release_id" ]; then
+            delete_release_asset_by_name "$release_id" "$asset_name" || true
+        else
+            warn "Could not parse release id from upload URL; skipping duplicate-asset cleanup for ${asset_name}"
+        fi
+    done
+
+    error "Upload of ${asset_name} failed after ${max_retries} attempts"
+    exit 1
 }
 
 prepare_workspace() {
