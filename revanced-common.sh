@@ -119,18 +119,39 @@ init_runtime_deps() {
 }
 
 clone() {
-    log "Cloning $1 (branch: $2) into $3"
-    URL=https://github.com/revanced
-    if [ -d "$CURDIR/$3/.git" ]; then
-        git -C "$CURDIR/$3" reset --hard HEAD >> "$LOGFILE" 2>&1 || { error "Failed to reset local changes in $1"; exit 1; }
-        git -C "$CURDIR/$3" clean -fd >> "$LOGFILE" 2>&1 || { error "Failed to clean local changes in $1"; exit 1; }
-        git -C "$CURDIR/$3" fetch --depth=1 origin "$2" >> "$LOGFILE" 2>&1 || { error "Failed to fetch $1"; exit 1; }
-        git -C "$CURDIR/$3" checkout -B "$2" FETCH_HEAD >> "$LOGFILE" 2>&1 || { error "Failed to checkout $1:$2"; exit 1; }
-        git -C "$CURDIR/$3" reset --hard FETCH_HEAD >> "$LOGFILE" 2>&1 || { error "Failed to reset $1 to fetched $2"; exit 1; }
-        success "Updated $1"
+    local REPO_NAME="$1"
+    local BRANCH="$2"
+    local TARGET_DIR="$3"
+    local PRIMARY_URL="https://github.com/revanced"
+    local FALLBACK_URL="https://gitlab.com/ReVanced"
+
+    log "Cloning $REPO_NAME (branch: $BRANCH) into $TARGET_DIR"
+
+    attempt_git_op() {
+        local BASE_URL=$1
+        if [ -d "$CURDIR/$TARGET_DIR/.git" ]; then
+            git -C "$CURDIR/$TARGET_DIR" reset --hard HEAD >> "$LOGFILE" 2>&1 && \
+            git -C "$CURDIR/$TARGET_DIR" clean -fd >> "$LOGFILE" 2>&1 && \
+            git -C "$CURDIR/$TARGET_DIR" fetch --depth=1 "$BASE_URL/$REPO_NAME" "$BRANCH" >> "$LOGFILE" 2>&1 && \
+            git -C "$CURDIR/$TARGET_DIR" checkout -B "$BRANCH" FETCH_HEAD >> "$LOGFILE" 2>&1 && \
+            git -C "$CURDIR/$TARGET_DIR" reset --hard FETCH_HEAD >> "$LOGFILE" 2>&1
+        else
+            git clone --depth=1 "$BASE_URL/$REPO_NAME" -b "$BRANCH" "$CURDIR/$TARGET_DIR" >> "$LOGFILE" 2>&1
+        fi
+    }
+
+    # Try GitHub first
+    if attempt_git_op "$PRIMARY_URL"; then
+        success "Action completed for $REPO_NAME using GitHub"
     else
-        git clone --depth=1 "$URL/$1" -b "$2" "$CURDIR/$3" >> "$LOGFILE" 2>&1 || { error "Failed to clone $1"; exit 1; }
-        success "Cloned $1"
+        log "GitHub failed for $REPO_NAME, attempting GitLab fallback..."
+        # Try GitLab fallback
+        if attempt_git_op "$FALLBACK_URL"; then
+            success "Action completed for $REPO_NAME using GitLab"
+        else
+            error "Failed to sync $REPO_NAME from both GitHub and GitLab"
+            exit 1
+        fi
     fi
 }
 
