@@ -133,6 +133,13 @@ echo "ReVanced Build Script - $(date)" >> "$LOGFILE"
 echo "========================================" >> "$LOGFILE"
 success "Build log: $LOGFILE"
 
+if [ "$MODE" = "cleanup-old-releases" ]; then
+    init_runtime_deps
+    init_auth_env
+    prune_old_releases_and_tags
+    exit 0
+fi
+
 # Get latest version
 init_runtime_deps
 init_auth_env

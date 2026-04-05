@@ -29,6 +29,17 @@ Run test flow (creates a draft release):
 ./revanced.sh test
 ```
 
+Run release cleanup flow (delete releases older than 90 days that have assets + their tags):
+
+```bash
+./revanced.sh cleanup-old-releases
+```
+
+Optional cleanup env vars:
+- `PRUNE_DAYS=120` to change age threshold (default: `90`)
+- `PRUNE_DRY_RUN=true` to preview without deleting
+- `RELEASE_REPO=owner/repo` to target a different repository
+
 Useful toggles:
 - `SKIP_UPLOAD=true` to skip release creation/upload
 - `FAST_BUILD=true` to speed up Gradle builds (`-x lint`)

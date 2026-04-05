@@ -852,3 +852,147 @@ upload_release_assets_if_needed() {
         warn "GITHUB_TOKEN is not set. Skipping release upload."
     fi
 }
+
+prune_old_releases_and_tags() {
+    local repo=${RELEASE_REPO:-shekhawat2/RevancedYT}
+    local prune_days=${PRUNE_DAYS:-90}
+    local dry_run=${PRUNE_DRY_RUN:-false}
+    local cutoff_epoch cutoff_utc
+    local list_file page resp count
+    local candidates deleted_releases release_delete_fail deleted_tags tag_delete_fail
+    local rid tag rcode tcode
+    local remaining page_remaining
+
+    if ! [[ "$prune_days" =~ ^[0-9]+$ ]] || [ "$prune_days" -le 0 ]; then
+        error "PRUNE_DAYS must be a positive integer (got: ${prune_days})"
+        return 1
+    fi
+
+    if ! command -v jq >/dev/null 2>&1; then
+        error "Missing required tool: jq"
+        return 1
+    fi
+
+    if [ -z "${GITHUB_TOKEN:-}" ]; then
+        error "GITHUB_TOKEN is required for release/tag pruning"
+        return 1
+    fi
+
+    cutoff_epoch=$(date -u -d "${prune_days} days ago" +%s)
+    cutoff_utc=$(date -u -d "@${cutoff_epoch}" '+%Y-%m-%dT%H:%M:%SZ')
+
+    status "Pruning releases older than ${prune_days} days with assets from ${repo} (cutoff: ${cutoff_utc})"
+    if [ "$dry_run" = "true" ]; then
+        warn "PRUNE_DRY_RUN=true set; no release/tag will be deleted"
+    fi
+
+    list_file=$(mktemp)
+
+    # Snapshot candidates first to avoid pagination shifts while deleting.
+    page=1
+    while :; do
+        resp=$(curl -sS \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            "https://api.github.com/repos/${repo}/releases?per_page=100&page=${page}")
+
+        count=$(printf '%s' "$resp" | jq 'length')
+        [ "$count" -eq 0 ] && break
+
+        printf '%s' "$resp" | jq -r --argjson c "$cutoff_epoch" '
+            .[]
+            | select((.assets | length) > 0)
+            | select(((.published_at // .created_at) | fromdateiso8601) < $c)
+            | [.id, .tag_name] | @tsv
+        ' >> "$list_file"
+
+        page=$((page + 1))
+    done
+
+    candidates=$(wc -l < "$list_file" | tr -d ' ')
+    if [ "$candidates" -eq 0 ]; then
+        success "No releases older than ${prune_days} days with assets were found"
+        rm -f "$list_file"
+        return 0
+    fi
+
+    deleted_releases=0
+    release_delete_fail=0
+    deleted_tags=0
+    tag_delete_fail=0
+
+    while IFS=$'\t' read -r rid tag; do
+        [ -z "$rid" ] && continue
+
+        if [ "$dry_run" = "true" ]; then
+            log "[DRY RUN] Would delete release id=${rid} and tag=${tag}"
+            continue
+        fi
+
+        rcode=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -X DELETE \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            "https://api.github.com/repos/${repo}/releases/${rid}")
+
+        if [ "$rcode" = "204" ]; then
+            deleted_releases=$((deleted_releases + 1))
+        elif [ "$rcode" != "404" ]; then
+            warn "Failed deleting release ${rid} (HTTP ${rcode})"
+            release_delete_fail=$((release_delete_fail + 1))
+        fi
+
+        if [ -n "${tag:-}" ] && [ "$tag" != "null" ]; then
+            tcode=$(curl -sS -o /dev/null -w '%{http_code}' \
+                -X DELETE \
+                -H 'Accept: application/vnd.github+json' \
+                -H "Authorization: token ${GITHUB_TOKEN}" \
+                "https://api.github.com/repos/${repo}/git/refs/tags/${tag}")
+
+            if [ "$tcode" = "204" ]; then
+                deleted_tags=$((deleted_tags + 1))
+            elif [ "$tcode" != "404" ] && [ "$tcode" != "422" ]; then
+                warn "Failed deleting tag ${tag} (HTTP ${tcode})"
+                tag_delete_fail=$((tag_delete_fail + 1))
+            fi
+        fi
+    done < "$list_file"
+
+    if [ "$dry_run" = "true" ]; then
+        success "Dry-run complete. Candidates: ${candidates}"
+        rm -f "$list_file"
+        return 0
+    fi
+
+    remaining=0
+    page=1
+    while :; do
+        resp=$(curl -sS \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            "https://api.github.com/repos/${repo}/releases?per_page=100&page=${page}")
+
+        count=$(printf '%s' "$resp" | jq 'length')
+        [ "$count" -eq 0 ] && break
+
+        page_remaining=$(printf '%s' "$resp" | jq --argjson c "$cutoff_epoch" '
+            [.[]
+            | select((.assets | length) > 0)
+            | select(((.published_at // .created_at) | fromdateiso8601) < $c)
+            ] | length
+        ')
+        remaining=$((remaining + page_remaining))
+        page=$((page + 1))
+    done
+
+    status "Prune summary: candidates=${candidates}, deleted_releases=${deleted_releases}, deleted_tags=${deleted_tags}, release_delete_fail=${release_delete_fail}, tag_delete_fail=${tag_delete_fail}, remaining_old_with_assets=${remaining}"
+
+    rm -f "$list_file"
+
+    if [ "$remaining" -gt 0 ]; then
+        warn "Pruning incomplete: ${remaining} old release(s) with assets still remain"
+        return 1
+    fi
+
+    success "Pruning complete. No releases older than ${prune_days} days with assets remain"
+}
