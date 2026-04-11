@@ -1,0 +1,147 @@
+variables:
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
+  # Android SDK configuration (adjust if your project uses different SDK/build-tools)
+  ANDROID_COMPILE_SDK: "34"
+  ANDROID_BUILD_TOOLS: "34.0.0"
+  ANDROID_CMDLINE_TOOLS: "9477386_latest"
+  INSTALL_ANDROID_SDK: "true"
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+      when: always
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: always
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: always
+    - if: $CI_PIPELINE_SOURCE == "api"
+      when: always
+    - when: never
+
+stages:
+  - build
+  - release
+
+cache:
+  key: "$CI_PROJECT_NAME-$CI_COMMIT_REF_SLUG"
+  paths:
+    - .gradle/wrapper/
+    - .gradle/caches/
+    - android-sdk/
+
+default:
+  image: gradle:jdk17
+  before_script:
+    - chmod +x ./revanced.sh || true
+    - apt-get update -y && apt-get install -y --no-install-recommends wget curl unzip zip file jq git tar lib32stdc++6 lib32z1
+    - |
+      if [ -z "${GITHUB_TOKEN:-}" ]; then
+        echo "ERROR: GITHUB_TOKEN is not set. Create a GitHub Personal Access Token with 'read:packages' scope and add it to CI variables as GITHUB_TOKEN"
+        exit 1
+      fi
+    - |
+      if [ -n "${ANDROID_SDK_ROOT:-}" ]; then
+        echo "Using existing Android SDK at: $ANDROID_SDK_ROOT"
+        mkdir -p "$ANDROID_SDK_ROOT"
+        export ANDROID_HOME="$ANDROID_SDK_ROOT"
+        export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+        if [ -d "revanced-patches" ]; then
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > revanced-patches/local.properties
+        else
+          echo "revanced-patches directory not present; will rely on ANDROID_HOME env var"
+        fi
+      elif [ "${INSTALL_ANDROID_SDK:-false}" = "true" ]; then
+        echo "INSTALL_ANDROID_SDK=true, installing Android command-line tools and required packages into project workspace..."
+        ANDROID_SDK_ROOT="$CI_PROJECT_DIR/android-sdk"
+        export ANDROID_SDK_ROOT
+        mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools" "$ANDROID_SDK_ROOT/platform-tools"
+        CMDLINE_ZIP=commandlinetools-linux-${ANDROID_CMDLINE_TOOLS}.zip
+        echo "Downloading command-line tools..."
+        wget -q "https://dl.google.com/android/repository/${CMDLINE_ZIP}" -O /tmp/${CMDLINE_ZIP} || { echo "Failed to download command-line tools"; exit 1; }
+        unzip -q /tmp/${CMDLINE_ZIP} -d /tmp/cmdline-tools
+        mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+        # move extracted contents into cmdline-tools/latest
+        if [ -d /tmp/cmdline-tools/cmdline-tools ]; then
+          mv /tmp/cmdline-tools/cmdline-tools/* "$ANDROID_SDK_ROOT/cmdline-tools/latest/" || true
+        else
+          mv /tmp/cmdline-tools/* "$ANDROID_SDK_ROOT/cmdline-tools/latest/" || true
+        fi
+        export ANDROID_HOME="$ANDROID_SDK_ROOT"
+        export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+        echo "Installing Android SDK packages (platform-tools, platforms;android-${ANDROID_COMPILE_SDK}, build-tools;${ANDROID_BUILD_TOOLS})..."
+        sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-${ANDROID_COMPILE_SDK}" "build-tools;${ANDROID_BUILD_TOOLS}" || { echo "sdkmanager install failed"; exit 1; }
+        # accept licenses (wrap to avoid failing on EPIPE) — hide license text
+        set +o pipefail
+        yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses > /dev/null 2>&1 || true
+        set -o pipefail
+        if [ -d "revanced-patches" ]; then
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > revanced-patches/local.properties
+        else
+          echo "revanced-patches directory not present; will rely on ANDROID_HOME env var"
+        fi
+      else
+        echo "ERROR: ANDROID_SDK_ROOT is not set. Either install Android SDK on your runner and set ANDROID_SDK_ROOT, or enable auto-install by setting INSTALL_ANDROID_SDK=true and ensure the job can download command line tools."
+        exit 1
+      fi
+
+# Test job — mirrors .github/workflows/test.yml
+revanced_test:
+  stage: build
+  script:
+    - export ORG_GRADLE_PROJECT_githubPackagesUsername="${GITHUB_ACTOR:-$GITLAB_USER_LOGIN}"
+    - export ORG_GRADLE_PROJECT_githubPackagesPassword="${GITHUB_TOKEN}"
+    - export KEYSTORE_PASSWORD="${KEYSTORE_PASSWORD:-}"
+    - export FAST_BUILD="true"
+    - ./revanced.sh test
+  artifacts:
+    when: always
+    paths:
+      - .module-build/
+      - build/distributions/
+      - build/libs/
+      - '*.apk'
+      - '*.zip'
+    expire_in: 1 week
+  cache:
+    policy: pull-push
+    key: "$CI_COMMIT_REF_SLUG"
+    paths:
+      - .gradle/wrapper/
+      - .gradle/caches/
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+      when: always
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
+    - when: manual
+
+# Release job — mirrors .github/workflows/revanced.yml (scheduled + manual)
+revanced_release:
+  stage: release
+  script:
+    - export ORG_GRADLE_PROJECT_githubPackagesUsername="${GITHUB_ACTOR:-$GITLAB_USER_LOGIN}"
+    - export ORG_GRADLE_PROJECT_githubPackagesPassword="${GITHUB_TOKEN}"
+    - export KEYSTORE_PASSWORD="${KEYSTORE_PASSWORD:-}"
+    - export FAST_BUILD="true"
+    - ./revanced.sh
+  artifacts:
+    paths:
+      - .module-build/
+      - build/distributions/
+      - build/libs/
+      - '*.apk'
+      - '*.zip'
+    expire_in: 1 week
+  cache:
+    policy: pull-push
+    key: "$CI_COMMIT_REF_SLUG"
+    paths:
+      - .gradle/wrapper/
+      - .gradle/caches/
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: always
+    - when: manual
+
