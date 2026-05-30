@@ -145,3 +145,44 @@ revanced_release:
       when: always
     - when: manual
 
+# GitLab Release job — creates a GitLab release entry for tags
+gitlab_release:
+  stage: release
+  script:
+    - export ORG_GRADLE_PROJECT_githubPackagesUsername="${GITHUB_ACTOR:-$GITLAB_USER_LOGIN}"
+    - export ORG_GRADLE_PROJECT_githubPackagesPassword="${GITHUB_TOKEN}"
+    - export KEYSTORE_PASSWORD="${KEYSTORE_PASSWORD:-}"
+    - export FAST_BUILD="true"
+    - ./revanced.sh
+  artifacts:
+    when: always
+    paths:
+      - .module-build/
+      - build/distributions/
+      - build/libs/
+      - '*.apk'
+      - '*.zip'
+    expire_in: 1 week
+  cache:
+    policy: pull-push
+    key: "$CI_COMMIT_REF_SLUG"
+    paths:
+      - .gradle/wrapper/
+      - .gradle/caches/
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: always
+    - when: never
+  release:
+    tag_name: "$CI_COMMIT_TAG"
+    name: "ReVanced $CI_COMMIT_TAG"
+    ref: "$CI_COMMIT_SHA"
+    description: |
+      Automated GitLab release for $CI_COMMIT_TAG.
+
+      Build artifacts are attached to the job and can be downloaded from the pipeline artifacts page.
+    assets:
+      links:
+        - name: "Pipeline artifacts"
+          url: "$CI_PROJECT_URL/-/jobs/$CI_JOB_ID/artifacts/download"
+
